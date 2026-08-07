@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>จับสลากรางวัล</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700;900&family=Share+Tech+Mono&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0a0a12;
+    --panel:     #12121e;
+    --rim:       #1e1e30;
+    --gold:      #f5c842;
+    --gold-dim:  #a07c10;
+    --red:       #e03040;
+    --cyan:      #00e5ff;
+    --white:     #f0f0f8;
+    --muted:     #5a5a7a;
+    --reel-bg:   #08080f;
+    --reel-glow: rgba(0,229,255,.18);
+  }
+
+  body {
+    font-family: 'Kanit', sans-serif;
+    background: var(--bg);
+    color: var(--white);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    overflow-x: hidden;
+  }
+
+  /* Ambient stars */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,.35) 0%, transparent 100%),
+      radial-gradient(1px 1px at 45% 72%, rgba(255,255,255,.25) 0%, transparent 100%),
+      radial-gradient(1px 1px at 78% 31%, rgba(255,255,255,.3)  0%, transparent 100%),
+      radial-gradient(1px 1px at 91% 85%, rgba(255,255,255,.2)  0%, transparent 100%),
+      radial-gradient(1px 1px at 33% 52%, rgba(255,255,255,.2)  0%, transparent 100%),
+      radial-gradient(1px 1px at 62% 9%,  rgba(255,255,255,.3)  0%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 560px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+  }
+
+  /* Header */
+  .header { text-align: center; }
+  .header .eyebrow {
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: .25em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .header h1 {
+    font-size: clamp(1.6rem, 5vw, 2.2rem);
+    font-weight: 900;
+    letter-spacing: .05em;
+    color: var(--gold);
+    text-shadow: 0 0 28px rgba(245,200,66,.5);
+    line-height: 1.1;
+  }
+  .header h1 span { color: var(--cyan); }
+
+  /* Machine body */
+  .machine {
+    width: 100%;
+    background: var(--panel);
+    border: 2px solid var(--rim);
+    border-radius: 24px;
+    padding: 32px 28px 28px;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,.04),
+      0 20px 60px rgba(0,0,0,.6),
+      inset 0 1px 0 rgba(255,255,255,.07);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* top bar flare */
+  .machine::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 10%; right: 10%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    opacity: .6;
+  }
+
+  /* Reels row */
+  .reels-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .reel-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .reel-label {
+    font-size: 10px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .reel {
+    width: 110px;
+    height: 140px;
+    background: var(--reel-bg);
+    border: 2px solid var(--rim);
+    border-radius: 14px;
+    position: relative;
+    overflow: hidden;
+    box-shadow:
+      inset 0 0 28px rgba(0,0,0,.7),
+      0 0 14px var(--reel-glow);
+  }
+
+  /* highlight strips top/bottom */
+  .reel::before, .reel::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    height: 36px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .reel::before {
+    top: 0;
+    background: linear-gradient(to bottom, var(--reel-bg) 0%, transparent 100%);
+  }
+  .reel::after {
+    bottom: 0;
+    background: linear-gradient(to top, var(--reel-bg) 0%, transparent 100%);
+  }
+
+  /* Center line */
+  .reel-center-line {
+    position: absolute;
+    top: 50%; left: 6px; right: 6px;
+    transform: translateY(-50%);
+    height: 56px;
+    border: 2px solid rgba(0,229,255,.35);
+    border-radius: 8px;
+    z-index: 3;
+    pointer-events: none;
+    box-shadow: 0 0 12px rgba(0,229,255,.2), inset 0 0 8px rgba(0,229,255,.08);
+  }
+
+  .reel-strip {
+    position: absolute;
+    left: 0; right: 0;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: top .05s linear;
+  }
+
+  .reel-digit {
+    width: 100%;
+    height: 46.67px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: var(--white);
+    user-select: none;
+  }
+
+  .reel-digit.center { color: var(--gold); }
+
+  /* Separator */
+  .reel-sep {
+    font-size: 2rem;
+    color: var(--muted);
+    padding-bottom: 24px;
+    user-select: none;
+  }
+
+  /* Result display */
+  .result-box {
+    text-align: center;
+    min-height: 36px;
+    margin-bottom: 22px;
+  }
+  .result-number {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 2.6rem;
+    font-weight: 700;
+    letter-spacing: .18em;
+    color: var(--gold);
+    text-shadow: 0 0 20px rgba(245,200,66,.6);
+    opacity: 0;
+    transform: scale(.9);
+    transition: opacity .4s ease, transform .4s ease;
+  }
+  .result-number.visible {
+    opacity: 1;
+    transform: scale(1);
+  }
+  .result-label {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: .15em;
+    margin-top: 4px;
+    text-transform: uppercase;
+  }
+
+  /* Spin button */
+  .spin-btn {
+    width: 100%;
+    padding: 18px;
+    background: linear-gradient(135deg, var(--gold) 0%, #d4a800 100%);
+    color: #0a0800;
+    font-family: 'Kanit', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform .12s ease, box-shadow .12s ease, opacity .2s;
+    box-shadow: 0 4px 20px rgba(245,200,66,.35), 0 1px 0 rgba(255,255,255,.25) inset;
+  }
+  .spin-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(245,200,66,.5), 0 1px 0 rgba(255,255,255,.3) inset;
+  }
+  .spin-btn:active:not(:disabled) { transform: translateY(0); }
+  .spin-btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+  /* Ripple on click */
+  .spin-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle, rgba(255,255,255,.3) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity .3s;
+  }
+  .spin-btn.clicked::after { opacity: 1; }
+
+  /* History */
+  .history {
+    width: 100%;
+  }
+  .history-title {
+    font-size: 11px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+    text-align: center;
+  }
+  .history-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    max-height: 120px;
+    overflow-y: auto;
+    padding: 2px;
+  }
+  .history-list::-webkit-scrollbar { width: 4px; }
+  .history-list::-webkit-scrollbar-track { background: transparent; }
+  .history-list::-webkit-scrollbar-thumb { background: var(--rim); border-radius: 4px; }
+
+  .history-chip {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: .85rem;
+    background: var(--rim);
+    color: var(--white);
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,.07);
+    opacity: 0;
+    animation: chipIn .3s ease forwards;
+  }
+  .history-chip:first-child { border-color: rgba(245,200,66,.4); color: var(--gold); }
+
+  @keyframes chipIn {
+    from { opacity: 0; transform: scale(.8); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  /* Win flash overlay */
+  .win-flash {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0;
+    background: radial-gradient(ellipse at center, rgba(245,200,66,.25) 0%, transparent 70%);
+    transition: opacity .2s;
+  }
+  .win-flash.show { opacity: 1; }
+
+  /* Confetti canvas */
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 99; }
+
+  /* Clear btn */
+  .clear-btn {
+    background: none;
+    border: 1px solid var(--rim);
+    color: var(--muted);
+    font-family: 'Kanit', sans-serif;
+    font-size: 11px;
+    letter-spacing: .12em;
+    padding: 6px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: border-color .2s, color .2s;
+    display: block;
+    margin: 10px auto 0;
+  }
+  .clear-btn:hover { border-color: var(--red); color: var(--red); }
+
+  /* ── Popup Modal ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.75);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .35s ease;
+  }
+  .modal-overlay.show {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .modal {
+    background: var(--panel);
+    border: 2px solid var(--gold-dim);
+    border-radius: 28px;
+    padding: 44px 40px 36px;
+    text-align: center;
+    max-width: 340px;
+    width: 90%;
+    position: relative;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,.06),
+      0 30px 80px rgba(0,0,0,.8),
+      0 0 60px rgba(245,200,66,.12);
+    transform: scale(.88) translateY(20px);
+    transition: transform .38s cubic-bezier(.34,1.56,.64,1), opacity .35s ease;
+    opacity: 0;
+  }
+  .modal-overlay.show .modal {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+
+  /* Glow top line */
+  .modal::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 15%; right: 15%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    border-radius: 2px;
+  }
+
+  .modal-icon {
+    font-size: 3rem;
+    line-height: 1;
+    margin-bottom: 12px;
+    animation: iconBounce .5s cubic-bezier(.34,1.56,.64,1) .2s both;
+  }
+  @keyframes iconBounce {
+    from { transform: scale(0) rotate(-20deg); }
+    to   { transform: scale(1) rotate(0deg); }
+  }
+
+  .modal-eyebrow {
+    font-size: 10px;
+    letter-spacing: .28em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .modal-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--white);
+    margin-bottom: 22px;
+  }
+
+  .modal-number {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 4.5rem;
+    font-weight: 700;
+    letter-spacing: .22em;
+    color: var(--gold);
+    text-shadow: 0 0 32px rgba(245,200,66,.7), 0 0 8px rgba(245,200,66,.4);
+    line-height: 1;
+    margin-bottom: 8px;
+    animation: numberPop .45s cubic-bezier(.34,1.56,.64,1) .32s both;
+  }
+  @keyframes numberPop {
+    from { transform: scale(.6); opacity: 0; }
+    to   { transform: scale(1);  opacity: 1; }
+  }
+
+  .modal-digits-row {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 28px;
+  }
+  .modal-digit-box {
+    width: 72px;
+    height: 80px;
+    background: var(--reel-bg);
+    border: 2px solid var(--rim);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 2.6rem;
+    font-weight: 700;
+    color: var(--gold);
+    box-shadow: 0 0 16px rgba(245,200,66,.15), inset 0 0 12px rgba(0,0,0,.5);
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  .modal-digit-box.pop {
+    animation: digitBoxIn .4s cubic-bezier(.34,1.56,.64,1) forwards;
+  }
+  @keyframes digitBoxIn {
+    from { opacity: 0; transform: translateY(16px) scale(.8); }
+    to   { opacity: 1; transform: translateY(0)  scale(1); }
+  }
+
+  .modal-close-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--gold) 0%, #d4a800 100%);
+    color: #0a0800;
+    font-family: 'Kanit', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform .12s ease, box-shadow .12s ease;
+    box-shadow: 0 4px 16px rgba(245,200,66,.3);
+  }
+  .modal-close-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(245,200,66,.45); }
+  .modal-close-btn:active { transform: translateY(0); }
+
+  @media (max-width: 400px) {
+    .reel { width: 88px; height: 120px; }
+    .reel-digit { font-size: 2rem; height: 40px; }
+    .reel-sep { font-size: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="confetti"></canvas>
+<div class="win-flash" id="winFlash"></div>
+
+<!-- Result Popup -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modal">
+    <div class="modal-icon">🎉</div>
+    <p class="modal-eyebrow">ผลการจับสลาก</p>
+    <p class="modal-title">หมายเลขที่ได้รับคือ</p>
+    <div class="modal-digits-row">
+      <div class="modal-digit-box" id="popDigit0"></div>
+      <div class="modal-digit-box" id="popDigit1"></div>
+      <div class="modal-digit-box" id="popDigit2"></div>
+    </div>
+    <button class="modal-close-btn" onclick="closeModal()">✓ รับทราบ</button>
+  </div>
+</div>
+
+<div class="wrapper">
+
+  <div class="header">
+    <p class="eyebrow">ระบบจับสลาก</p>
+    <h1>🎰 จับ<span>สลาก</span>รางวัล</h1>
+  </div>
+
+  <div class="machine">
+    <!-- Reels -->
+    <div class="reels-row">
+      <div class="reel-wrapper">
+        <!-- <span class="reel-label">หลักร้อย</span> -->
+        <div class="reel" id="reel0">
+          <div class="reel-strip" id="strip0"></div>
+          <div class="reel-center-line"></div>
+        </div>
+      </div>
+      <div class="reel-sep">–</div>
+      <div class="reel-wrapper">
+        <!-- <span class="reel-label">หลักสิบ</span> -->
+        <div class="reel" id="reel1">
+          <div class="reel-strip" id="strip1"></div>
+          <div class="reel-center-line"></div>
+        </div>
+      </div>
+      <div class="reel-sep">–</div>
+      <div class="reel-wrapper">
+        <!-- <span class="reel-label">หลักหน่วย</span> -->
+        <div class="reel" id="reel2">
+          <div class="reel-strip" id="strip2"></div>
+          <div class="reel-center-line"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div class="result-box">
+      <div class="result-number" id="resultNumber">000</div>
+      <div class="result-label" id="resultLabel">กด "ปั่น" เพื่อเริ่มจับสลาก</div>
+    </div>
+
+    <!-- Button -->
+    <button class="spin-btn" id="spinBtn" onclick="spin()">🎲 ปั่นสลาก</button>
+  </div>
+
+  <!-- History -->
+  <div class="history">
+    <p class="history-title">ผลการจับสลากล่าสุด</p>
+    <div class="history-list" id="historyList">
+      <span style="color:var(--muted);font-size:.8rem;font-family:'Kanit',sans-serif;">ยังไม่มีการจับสลาก</span>
+    </div>
+    <button class="clear-btn" onclick="clearHistory()">ล้างประวัติ</button>
+  </div>
+
+</div>
+
+<script>
+/* ─── Config ─── */
+const REEL_RANGES = [
+  [0,1,2],                              // reel 0: 0–2
+  [0,1,2,3,4,5,6,7,8,9],               // reel 1: 0–9
+  [0,1,2,3,4,5,6,7,8,9],               // reel 2: 0–9
+];
+
+const REEL_HEIGHT = 140;  // px (must match CSS)
+const DIGIT_H    = REEL_HEIGHT / 3;    // 3 visible rows
+const SPIN_DURATIONS = [1500, 2000, 2600]; // ms per reel
+
+let spinning = false;
+let history  = [];
+
+/* ─── Build strips ─── */
+function buildStrip(stripEl, digits) {
+  // Repeat digits many times so we can scroll endlessly
+  stripEl.innerHTML = '';
+  const repeated = [];
+  for (let i = 0; i < 20; i++) repeated.push(...digits);
+  repeated.forEach(d => {
+    const div = document.createElement('div');
+    div.className = 'reel-digit';
+    div.textContent = d;
+    stripEl.appendChild(div);
+  });
+}
+
+REEL_RANGES.forEach((digits, i) => {
+  buildStrip(document.getElementById(`strip${i}`), digits);
+});
+
+/* ─── Spin logic ─── */
+function getRandomDigit(digits) {
+  return digits[Math.floor(Math.random() * digits.length)];
+}
+
+function easeOut(t) {
+  return 1 - Math.pow(1 - t, 4);
+}
+
+function spinReel(stripEl, digits, targetDigit, duration) {
+  return new Promise(resolve => {
+    const totalDigits = 20 * digits.length;
+    const digitH = DIGIT_H;
+
+    // Find the last occurrence of targetDigit so we land there
+    // We'll pick a "landing" index: aim at ~80% of the strip
+    const landingCycle = 14 + Math.floor(Math.random() * 4); // between cycle 14-17
+    const landingIndexInCycle = digits.indexOf(targetDigit);
+    const landingIndex = landingCycle * digits.length + landingIndexInCycle;
+
+    // Final top so center row shows targetDigit
+    const finalTop = -(landingIndex * digitH) + digitH; // offset to center
+
+    // Start from current position (top: 0)
+    stripEl.style.transition = 'none';
+    stripEl.style.top = '0px';
+
+    // Add extra "pre-spin" distance
+    const totalDistance = Math.abs(finalTop) + digits.length * digitH * 3;
+    const startTop = 0;
+    const endTop = finalTop;
+
+    let startTime = null;
+
+    function frame(ts) {
+      if (!startTime) startTime = ts;
+      const elapsed = ts - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = easeOut(progress);
+      const current = startTop + (endTop - startTop) * eased;
+      stripEl.style.top = current + 'px';
+
+      // Highlight center digit live
+      const centerIdx = Math.round((-current) / digitH);
+      stripEl.querySelectorAll('.reel-digit').forEach((el, i) => {
+        el.classList.toggle('center', i === centerIdx);
+      });
+
+      if (progress < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        stripEl.style.top = endTop + 'px';
+        resolve(targetDigit);
+      }
+    }
+
+    requestAnimationFrame(frame);
+  });
+}
+
+async function spin() {
+  if (spinning) return;
+  spinning = true;
+
+  const btn = document.getElementById('spinBtn');
+  const resultEl = document.getElementById('resultNumber');
+  const labelEl  = document.getElementById('resultLabel');
+
+  btn.disabled = true;
+  btn.classList.add('clicked');
+  setTimeout(() => btn.classList.remove('clicked'), 300);
+
+  resultEl.classList.remove('visible');
+  labelEl.textContent = 'กำลังปั่น...';
+
+  // Pick results
+  const results = REEL_RANGES.map(getRandomDigit);
+
+  // Spin all reels simultaneously with staggered stops
+  const promises = results.map((digit, i) =>
+    spinReel(
+      document.getElementById(`strip${i}`),
+      REEL_RANGES[i],
+      digit,
+      SPIN_DURATIONS[i]
+    )
+  );
+
+  await Promise.all(promises);
+
+  const numberStr = results.join('');
+  resultEl.textContent = numberStr;
+  resultEl.classList.add('visible');
+  labelEl.textContent = '✨ หมายเลขสลากที่ได้';
+
+  addToHistory(numberStr);
+  triggerWinEffect();
+  showModal(results);
+
+  setTimeout(() => {
+    btn.disabled = false;
+    spinning = false;
+  }, 600);
+}
+
+/* ─── Modal ─── */
+function showModal(digits) {
+  const overlay = document.getElementById('modalOverlay');
+  overlay.classList.add('show');
+
+  digits.forEach((d, i) => {
+    const box = document.getElementById(`popDigit${i}`);
+    box.textContent = d;
+    box.classList.remove('pop');
+    // stagger each box
+    setTimeout(() => box.classList.add('pop'), 120 + i * 110);
+  });
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+
+// Close on backdrop click
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+/* ─── History ─── */
+function addToHistory(num) {
+  history.unshift(num);
+  if (history.length > 30) history.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  list.innerHTML = '';
+  history.forEach((num, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'history-chip';
+    chip.textContent = num;
+    chip.style.animationDelay = (i === 0 ? '0ms' : `${i * 30}ms`);
+    list.appendChild(chip);
+  });
+}
+
+function clearHistory() {
+  history = [];
+  document.getElementById('historyList').innerHTML =
+    '<span style="color:var(--muted);font-size:.8rem;font-family:\'Kanit\',sans-serif;">ยังไม่มีการจับสลาก</span>';
+}
+
+/* ─── Win effect ─── */
+function triggerWinEffect() {
+  const flash = document.getElementById('winFlash');
+  flash.classList.add('show');
+  setTimeout(() => flash.classList.remove('show'), 600);
+  launchConfetti();
+}
+
+/* ─── Confetti ─── */
+const canvas = document.getElementById('confetti');
+const ctx = canvas.getContext('2d');
+let particles = [];
+
+function resizeCanvas() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function launchConfetti() {
+  const colors = ['#f5c842','#00e5ff','#e03040','#ffffff','#ff9f43','#a29bfe'];
+  for (let i = 0; i < 80; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: -10,
+      vx: (Math.random() - .5) * 4,
+      vy: Math.random() * 4 + 2,
+      size: Math.random() * 7 + 3,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rotation: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - .5) * .2,
+      alpha: 1,
+    });
+  }
+  if (particles.length === 80) requestAnimationFrame(animateConfetti);
+}
+
+function animateConfetti() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  particles = particles.filter(p => p.alpha > .01);
+  particles.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += .08;
+    p.rotation += p.rotSpeed;
+    p.alpha -= .012;
+    ctx.save();
+    ctx.globalAlpha = p.alpha;
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rotation);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size * .5);
+    ctx.restore();
+  });
+  if (particles.length > 0) requestAnimationFrame(animateConfetti);
+  else ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+</script>
+</body>
+</html>
