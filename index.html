@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>จับสลากรางวัล — วงล้อ</title>
+<title>วงล้อสลากรางวัล</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -16,83 +16,67 @@
   <div class="modal">
     <div class="modal-icon">🎉</div>
     <p class="modal-sub">ผลการจับสลาก</p>
-    <p class="modal-label">หมายเลขที่ได้รับคือ</p>
+    <p class="modal-label">รายการที่ได้รับคือ</p>
     <div class="modal-number" id="modalNumber">—</div>
     <button class="modal-close" onclick="closeModal()">✓ รับทราบ</button>
   </div>
 </div>
 
-<div class="wrapper">
+<div class="app">
 
-  <div class="header">
-    <p class="eyebrow">ระบบจับสลาก</p>
+  <!-- Header -->
+  <header class="app-header">
     <h1>🎡 วงล้อ<span>สลาก</span>รางวัล</h1>
-  </div>
+  </header>
 
-  <!-- Wheel -->
-  <div class="wheel-section">
-    <div class="wheel-container">
-      <div class="wheel-pointer"></div>
-      <canvas id="wheel" width="320" height="320"></canvas>
-    </div>
-    <button class="spin-btn" id="spinBtn" onclick="spinWheel()">🎲 หมุนวงล้อ</button>
-  </div>
+  <!-- Main layout: wheel left, editor right -->
+  <div class="app-body">
 
-  <!-- Number Manager -->
-  <div class="manager">
-    <p class="manager-title">จัดการหมายเลขในวงล้อ</p>
+    <!-- LEFT: Wheel -->
+    <div class="wheel-col">
+      <div class="wheel-wrap">
+        <div class="wheel-pointer"></div>
+        <canvas id="wheel" width="420" height="420"></canvas>
+      </div>
+      <button class="spin-btn" id="spinBtn" onclick="spinWheel()">
+        <span class="spin-icon">▶</span> หมุนวงล้อ
+      </button>
 
-    <!-- Tabs -->
-    <div class="tabs">
-      <button class="tab active" id="tabSingle" onclick="switchTab('single')">เพิ่มทีละรายการ</button>
-      <button class="tab"        id="tabBulk"   onclick="switchTab('bulk')">เพิ่มหลายรายการ</button>
-    </div>
-
-    <!-- Single add -->
-    <div class="tab-panel" id="panelSingle">
-      <div class="add-row">
-        <input class="add-input" id="numInput" type="text"
-          placeholder="พิมพ์เลข หรือข้อความ..."
-          maxlength="20"
-          onkeydown="if(event.key==='Enter') addNumber()">
-        <button class="add-btn" onclick="addNumber()">+ เพิ่ม</button>
+      <!-- History -->
+      <div class="history-box">
+        <div class="history-header">
+          <span class="history-title">ผลล่าสุด</span>
+          <button class="history-clear" onclick="clearHistory()">ล้าง</button>
+        </div>
+        <div class="history-list" id="historyList">
+          <span class="empty-text">ยังไม่มีผล</span>
+        </div>
       </div>
     </div>
 
-    <!-- Bulk add -->
-    <div class="tab-panel hidden" id="panelBulk">
-      <textarea class="bulk-input" id="bulkInput"
-        placeholder="วางรายการได้เลย — 1 บรรทัด = 1 รายการ&#10;&#10;เช่น&#10;001&#10;002&#10;003&#10;หรือคั่นด้วยจุลภาค: 001, 002, 003"></textarea>
-      <div class="bulk-row">
-        <span class="bulk-hint" id="bulkHint">0 รายการ</span>
-        <button class="add-btn" onclick="addBulk()">+ เพิ่มทั้งหมด</button>
+    <!-- RIGHT: Editor -->
+    <div class="editor-col">
+      <div class="editor-toolbar">
+        <button class="tool-btn" onclick="shuffleItems()" title="สุ่มลำดับ">⇄ Shuffle</button>
+        <button class="tool-btn" onclick="sortItems()"    title="เรียงลำดับ">↑↓ Sort</button>
+        <div class="tool-sep"></div>
+        <button class="tool-btn" onclick="clearAll()"     title="ล้างทั้งหมด">🗑 ล้างทั้งหมด</button>
+        <span class="item-count" id="itemCount">0 รายการ</span>
+      </div>
+
+      <!-- The live-edit list -->
+      <div class="entry-list" id="entryList"></div>
+
+      <!-- Presets -->
+      <div class="preset-bar">
+        <span class="preset-label">เพิ่มด่วน:</span>
+        <button class="preset-btn" onclick="addPreset('000-099')">000–099</button>
+        <button class="preset-btn" onclick="addPreset('100-199')">100–199</button>
+        <button class="preset-btn" onclick="addPreset('200-299')">200–299</button>
       </div>
     </div>
 
-    <!-- Chips -->
-    <div class="chips-grid" id="chipsGrid">
-      <span class="chips-empty">ยังไม่มีหมายเลข — เพิ่มด้านบนได้เลย</span>
-    </div>
-
-    <!-- Presets + clear -->
-    <div class="presets">
-      <span class="preset-label">เพิ่มด่วน:</span>
-      <button class="preset-btn" onclick="addPreset('000-099')">000–099</button>
-      <button class="preset-btn" onclick="addPreset('100-199')">100–199</button>
-      <button class="preset-btn" onclick="addPreset('200-299')">200–299</button>
-      <button class="clear-all-btn" onclick="clearAll()">ล้างทั้งหมด</button>
-    </div>
   </div>
-
-  <!-- History -->
-  <div class="history">
-    <p class="history-title">ผลล่าสุด</p>
-    <div class="history-list" id="historyList">
-      <span style="color:var(--muted);font-size:.8rem;">ยังไม่มีผล</span>
-    </div>
-    <button class="history-clear" onclick="clearHistory()">ล้างประวัติ</button>
-  </div>
-
 </div>
 
 <script src="main.js"></script>

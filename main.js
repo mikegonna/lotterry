@@ -2,453 +2,385 @@
    Wheel Lottery — main.js
    ═══════════════════════════════════════ */
 
+/* ── Palette ── */
+const PALETTE = [
+  '#6dd49a','#a8e6bf','#3db87a','#b8f0d0',
+  '#52c48a','#d4f5e2','#2a9460','#7de0aa',
+  '#c6f0d8','#45c97e','#e8faf0','#5bd494',
+];
+
 /* ── State ── */
-let numbers  = [];   // items on the wheel
+let items    = [];   // { text: string }
 let spinning = false;
 let history  = [];
 
-/* ── Palette: segment colours cycling ── */
-const PALETTE = [
-  '#e03050','#f5c842','#00e5ff','#00e096',
-  '#a78bfa','#fb923c','#38bdf8','#f472b6',
-  '#4ade80','#facc15','#60a5fa','#f87171',
-];
-
-/* ── Canvas setup ── */
+/* ── Canvas ── */
 const canvas = document.getElementById('wheel');
 const ctx    = canvas.getContext('2d');
-const CX     = canvas.width  / 2;
-const CY     = canvas.height / 2;
-const R      = CX - 8;   // radius with a small margin
-
-/* Current rotation in radians */
+const CX = canvas.width / 2;
+const CY = canvas.height / 2;
+const R  = CX - 10;
 let currentAngle = 0;
 
-/* ── Draw wheel ── */
-function drawWheel(rotationRad) {
+/* ═══════════════ WHEEL DRAW ══════════════ */
+function drawWheel(rot) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const texts = items.map(i => i.text);
 
-  if (numbers.length === 0) {
-    drawEmpty();
-    return;
-  }
+  if (texts.length === 0) { drawEmpty(); return; }
 
-  const n     = numbers.length;
+  const n     = texts.length;
   const slice = (2 * Math.PI) / n;
 
-  numbers.forEach((num, i) => {
-    const startAngle = rotationRad + i * slice;
-    const endAngle   = startAngle + slice;
-    const color      = PALETTE[i % PALETTE.length];
+  texts.forEach((label, i) => {
+    const a0 = rot + i * slice;
+    const a1 = a0 + slice;
+    const col = PALETTE[i % PALETTE.length];
 
-    /* Segment fill */
+    /* Segment */
     ctx.beginPath();
     ctx.moveTo(CX, CY);
-    ctx.arc(CX, CY, R, startAngle, endAngle);
+    ctx.arc(CX, CY, R, a0, a1);
     ctx.closePath();
-    ctx.fillStyle = color;
+    ctx.fillStyle = col;
     ctx.fill();
-
-    /* Segment border */
-    ctx.beginPath();
-    ctx.moveTo(CX, CY);
-    ctx.arc(CX, CY, R, startAngle, endAngle);
-    ctx.closePath();
-    ctx.strokeStyle = 'rgba(0,0,0,.35)';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(0,0,0,.3)';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
 
     /* Label */
     ctx.save();
     ctx.translate(CX, CY);
-    ctx.rotate(startAngle + slice / 2);
-
-    const textR = R * (n <= 8 ? 0.62 : 0.68);
-    ctx.translate(textR, 0);
-
-    const fontSize = n <= 6 ? 18 : n <= 12 ? 14 : n <= 20 ? 11 : 9;
-    ctx.font        = `700 ${fontSize}px 'Share Tech Mono', monospace`;
-    ctx.fillStyle   = 'rgba(0,0,0,.8)';
-    ctx.textAlign   = 'center';
+    ctx.rotate(a0 + slice / 2);
+    const dist = n <= 6 ? R * .58 : n <= 14 ? R * .64 : R * .70;
+    ctx.translate(dist, 0);
+    const fs = n <= 4 ? 18 : n <= 8 ? 14 : n <= 16 ? 11 : n <= 30 ? 9 : 7;
+    ctx.font = `700 ${fs}px 'Kanit', sans-serif`;
+    ctx.fillStyle = '#1e3a2a';
+    ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-
-    /* Shadow for readability */
-    ctx.shadowColor  = 'rgba(255,255,255,.4)';
-    ctx.shadowBlur   = 3;
-
-    /* Truncate long labels */
-    const label = String(num).length > 8 ? String(num).slice(0, 7) + '…' : String(num);
-    ctx.fillText(label, 0, 0);
+    ctx.shadowColor = 'rgba(255,255,255,.35)';
+    ctx.shadowBlur  = 3;
+    const maxLen = n > 20 ? 6 : 10;
+    const txt = label.length > maxLen ? label.slice(0, maxLen - 1) + '…' : label;
+    ctx.fillText(txt, 0, 0);
     ctx.restore();
   });
 
-  /* Centre circle */
+  /* Centre cap */
   ctx.beginPath();
-  ctx.arc(CX, CY, 22, 0, 2 * Math.PI);
+  ctx.arc(CX, CY, 20, 0, Math.PI * 2);
   ctx.fillStyle = '#0d0d18';
   ctx.fill();
-  ctx.strokeStyle = 'rgba(245,200,66,.6)';
-  ctx.lineWidth   = 3;
+  ctx.strokeStyle = 'rgba(245,200,66,.55)';
+  ctx.lineWidth = 3;
   ctx.stroke();
-
-  /* Centre dot */
   ctx.beginPath();
-  ctx.arc(CX, CY, 6, 0, 2 * Math.PI);
+  ctx.arc(CX, CY, 6, 0, Math.PI * 2);
   ctx.fillStyle = '#f5c842';
   ctx.fill();
 }
 
 function drawEmpty() {
-  /* Dashed placeholder circle */
   ctx.beginPath();
-  ctx.arc(CX, CY, R, 0, 2 * Math.PI);
-  ctx.strokeStyle = 'rgba(255,255,255,.08)';
-  ctx.lineWidth   = 2;
-  ctx.setLineDash([10, 8]);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  ctx.font          = '600 15px Kanit, sans-serif';
-  ctx.fillStyle     = 'rgba(255,255,255,.2)';
-  ctx.textAlign     = 'center';
-  ctx.textBaseline  = 'middle';
-  ctx.fillText('เพิ่มหมายเลขก่อนหมุน', CX, CY);
+  ctx.arc(CX, CY, R, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,255,255,.07)';
+  ctx.lineWidth = 2; ctx.setLineDash([10, 8]); ctx.stroke(); ctx.setLineDash([]);
+  ctx.font = '600 14px Kanit, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,.2)';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('เพิ่มรายการทางขวามือ', CX, CY);
 }
 
-/* Initial draw */
 drawWheel(currentAngle);
 
-/* ── Spin ── */
+/* ═══════════════ SPIN ══════════════ */
 function spinWheel() {
   if (spinning) return;
-  if (numbers.length < 2) {
-    alert('กรุณาเพิ่มหมายเลขอย่างน้อย 2 รายการก่อนหมุน');
-    return;
-  }
-
+  if (items.length < 2) { showToast('ต้องมีอย่างน้อย 2 รายการ'); return; }
   spinning = true;
+
   const btn = document.getElementById('spinBtn');
   btn.disabled = true;
-  btn.classList.add('ripple');
-  setTimeout(() => btn.classList.remove('ripple'), 300);
 
-  /* Pick winner */
-  const winnerIdx  = Math.floor(Math.random() * numbers.length);
-  const n          = numbers.length;
+  const n          = items.length;
+  const winIdx     = Math.floor(Math.random() * n);
   const sliceAngle = (2 * Math.PI) / n;
-
-  /* We want the winning slice to land under the pointer (top = -π/2).
-     The centre of slice i is at: currentAngle + i*slice + slice/2
-     We need that == -π/2 (mod 2π) after spinning.
-     Extra full spins (5–8) for drama. */
   const extraSpins = (5 + Math.floor(Math.random() * 4)) * 2 * Math.PI;
-  const targetCenter = -Math.PI / 2 - (winnerIdx * sliceAngle + sliceAngle / 2);
-  /* Normalise so we always spin forward */
-  let delta = (targetCenter - currentAngle) % (2 * Math.PI);
-  if (delta > 0) delta -= 2 * Math.PI;   // ensure negative (forward = decreasing angle visually? no — we add)
-  /* Actually we spin by adding angle, pointer is fixed at top.
-     Winning segment centre should be at top after spin.
-     After rotation R, segment i centre is at: R + i*slice + slice/2
-     We want R + i*slice + slice/2 ≡ -π/2 (pointing up) mod 2π
-     So R_final = -π/2 - i*slice - slice/2
-  */
-  const R_final = -Math.PI / 2 - winnerIdx * sliceAngle - sliceAngle / 2;
-  /* Add enough full turns */
-  const spinsToAdd = extraSpins;
-  const R_target   = R_final - Math.floor((R_final - currentAngle) / (2 * Math.PI)) * (2 * Math.PI)
-                     - 2 * Math.PI * Math.ceil(extraSpins / (2 * Math.PI));
 
-  /* Simpler: just set total target = currentAngle + extraSpins + offset */
-  const offset = ((R_final - currentAngle) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+  /* Target angle: winning slice centre lands at pointer (top = -π/2) */
+  const targetAngle = -Math.PI / 2 - winIdx * sliceAngle - sliceAngle / 2;
+  const offset = ((targetAngle - currentAngle) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
   const totalDelta = extraSpins + offset;
 
-  const duration  = 4000 + Math.random() * 1000; // 4–5 s
+  const duration  = 4000 + Math.random() * 1000;
   const startAngle = currentAngle;
   let   startTime  = null;
 
-  function easeOut(t) { return 1 - Math.pow(1 - t, 4); }
+  function ease(t) { return 1 - Math.pow(1 - t, 4); }
 
   function frame(ts) {
     if (!startTime) startTime = ts;
     const t = Math.min((ts - startTime) / duration, 1);
-    currentAngle = startAngle + totalDelta * easeOut(t);
+    currentAngle = startAngle + totalDelta * ease(t);
     drawWheel(currentAngle);
-
-    if (t < 1) {
-      requestAnimationFrame(frame);
-    } else {
-      currentAngle = startAngle + totalDelta;
-      drawWheel(currentAngle);
-      onSpinEnd(winnerIdx);
-    }
+    if (t < 1) { requestAnimationFrame(frame); return; }
+    currentAngle = startAngle + totalDelta;
+    drawWheel(currentAngle);
+    onSpinEnd(winIdx);
   }
-
   requestAnimationFrame(frame);
 }
 
 function onSpinEnd(idx) {
-  const winner = numbers[idx];
-
-  /* Tick effect: briefly highlight pointer area */
+  const winner = items[idx].text;
   triggerWinEffect();
-
   setTimeout(() => {
     document.getElementById('modalNumber').textContent = winner;
     document.getElementById('modalOverlay').classList.add('show');
-    addHistory(String(winner));
+    addHistory(winner);
     spinning = false;
     document.getElementById('spinBtn').disabled = false;
-  }, 400);
+  }, 350);
 }
 
-/* ── Modal ── */
-function closeModal() {
-  document.getElementById('modalOverlay').classList.remove('show');
-}
-document.getElementById('modalOverlay').addEventListener('click', function(e) {
-  if (e.target === this) closeModal();
-});
+/* ═══════════════ MODAL ══════════════ */
+function closeModal() { document.getElementById('modalOverlay').classList.remove('show'); }
+document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target.id === 'modalOverlay') closeModal(); });
 
-/* ── Tabs ── */
-function switchTab(tab) {
-  document.getElementById('panelSingle').classList.toggle('hidden', tab !== 'single');
-  document.getElementById('panelBulk').classList.toggle('hidden',  tab !== 'bulk');
-  document.getElementById('tabSingle').classList.toggle('active', tab === 'single');
-  document.getElementById('tabBulk').classList.toggle('active',   tab === 'bulk');
-}
+/* ═══════════════ ENTRY LIST (wheelofnames style) ══════════════ */
+function renderList() {
+  const list = document.getElementById('entryList');
+  list.innerHTML = '';
 
-/* ── Bulk add ── */
-function parseBulkInput(raw) {
-  /* Accept newline-separated OR comma-separated, trim whitespace, drop empty */
-  return raw
-    .split(/[\n,]+/)
-    .map(s => s.trim())
-    .filter(s => s.length > 0);
-}
+  items.forEach((item, i) => {
+    const row = document.createElement('div');
+    row.className = 'entry-row';
+    row.dataset.idx = i;
 
-function addBulk() {
-  const raw   = document.getElementById('bulkInput').value;
-  const items = parseBulkInput(raw);
-  if (!items.length) return;
+    /* Colour swatch */
+    const sw = document.createElement('div');
+    sw.className = 'entry-swatch';
+    sw.style.background = PALETTE[i % PALETTE.length];
 
-  let added = 0, skipped = 0;
-  items.forEach(val => {
-    const v = val.slice(0, 20); // max length guard
-    if (numbers.includes(v)) { skipped++; return; }
-    numbers.push(v);
-    added++;
-  });
+    /* Line number */
+    const num = document.createElement('span');
+    num.className = 'entry-num';
+    num.textContent = i + 1;
 
-  document.getElementById('bulkInput').value = '';
-  document.getElementById('bulkHint').textContent = '0 รายการ';
-  renderChips();
-  drawWheel(currentAngle);
-
-  if (skipped > 0) {
-    const msg = added > 0
-      ? `เพิ่ม ${added} รายการ (ข้าม ${skipped} รายการที่ซ้ำ)`
-      : `ทุกรายการซ้ำกับที่มีอยู่แล้ว (${skipped} รายการ)`;
-    showToast(msg);
-  }
-}
-
-/* Live count hint while typing in bulk textarea */
-document.addEventListener('DOMContentLoaded', () => {
-  const bulkInput = document.getElementById('bulkInput');
-  if (bulkInput) {
-    bulkInput.addEventListener('input', () => {
-      const count = parseBulkInput(bulkInput.value).length;
-      document.getElementById('bulkHint').textContent =
-        count > 0 ? `${count} รายการ` : '0 รายการ';
+    /* Editable text */
+    const inp = document.createElement('input');
+    inp.className = 'entry-input';
+    inp.type  = 'text';
+    inp.value = item.text;
+    inp.placeholder = `รายการที่ ${i + 1}`;
+    inp.maxLength = 40;
+    inp.addEventListener('input', () => {
+      items[i].text = inp.value;
+      drawWheel(currentAngle);
+      updateCount();
     });
-  }
-});
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        /* Insert new row below */
+        items.splice(i + 1, 0, { text: '' });
+        renderList();
+        drawWheel(currentAngle);
+        updateCount();
+        /* Focus next row */
+        const rows = document.querySelectorAll('.entry-input');
+        if (rows[i + 1]) rows[i + 1].focus();
+      }
+      if (e.key === 'Backspace' && inp.value === '' && items.length > 1) {
+        e.preventDefault();
+        items.splice(i, 1);
+        renderList();
+        drawWheel(currentAngle);
+        updateCount();
+        const rows = document.querySelectorAll('.entry-input');
+        const target = rows[Math.max(0, i - 1)];
+        if (target) { target.focus(); target.setSelectionRange(target.value.length, target.value.length); }
+      }
+    });
 
-/* ── Toast notification ── */
-function showToast(msg) {
-  let toast = document.getElementById('toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'toast';
-    toast.style.cssText = `
-      position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(20px);
-      background:#1e1e30; border:1px solid rgba(255,255,255,.12);
-      color:#f0f0f8; font-family:'Kanit',sans-serif; font-size:.85rem;
-      padding:10px 20px; border-radius:20px; z-index:300;
-      opacity:0; transition:opacity .25s, transform .25s; white-space:nowrap;
-      box-shadow:0 4px 20px rgba(0,0,0,.5);
-    `;
-    document.body.appendChild(toast);
-  }
-  toast.textContent = msg;
-  toast.style.opacity = '1';
-  toast.style.transform = 'translateX(-50%) translateY(0)';
-  clearTimeout(toast._t);
-  toast._t = setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateX(-50%) translateY(20px)';
-  }, 2800);
-}
-
-/* ── Number Manager ── */
-function addNumber() {
-  const input = document.getElementById('numInput');
-  const val   = input.value.trim();
-  if (!val) return;
-
-  /* Prevent duplicates */
-  if (numbers.includes(val)) {
-    input.style.borderColor = '#e03050';
-    setTimeout(() => input.style.borderColor = '', 800);
-    input.value = '';
-    return;
-  }
-
-  numbers.push(val);
-  input.value = '';
-  input.focus();
-  renderChips();
-  drawWheel(currentAngle);
-}
-
-function removeNumber(idx) {
-  numbers.splice(idx, 1);
-  renderChips();
-  drawWheel(currentAngle);
-}
-
-function renderChips() {
-  const grid = document.getElementById('chipsGrid');
-  grid.innerHTML = '';
-
-  if (numbers.length === 0) {
-    grid.innerHTML = '<span class="chips-empty">ยังไม่มีหมายเลข — เพิ่มด้านบนได้เลย</span>';
-    return;
-  }
-
-  numbers.forEach((num, i) => {
-    const chip = document.createElement('div');
-    chip.className = 'chip';
-
-    const dot = document.createElement('span');
-    dot.style.cssText = `
-      display:inline-block; width:8px; height:8px; border-radius:50%;
-      background:${PALETTE[i % PALETTE.length]}; flex-shrink:0;
-    `;
-
-    const label = document.createElement('span');
-    label.textContent = num;
-
+    /* Delete button */
     const del = document.createElement('button');
-    del.className   = 'chip-del';
+    del.className   = 'entry-del';
     del.textContent = '×';
-    del.title       = 'ลบ';
-    del.onclick     = () => removeNumber(i);
+    del.title = 'ลบรายการนี้';
+    del.onclick = () => {
+      if (items.length <= 1) { items[0].text = ''; renderList(); return; }
+      items.splice(i, 1);
+      renderList();
+      drawWheel(currentAngle);
+      updateCount();
+    };
 
-    chip.appendChild(dot);
-    chip.appendChild(label);
-    chip.appendChild(del);
-    grid.appendChild(chip);
+    row.appendChild(sw);
+    row.appendChild(num);
+    row.appendChild(inp);
+    row.appendChild(del);
+    list.appendChild(row);
   });
+
+  /* "Add new entry" placeholder at bottom */
+  const newRow = document.createElement('div');
+  newRow.className = 'entry-row entry-new';
+  const newInp = document.createElement('input');
+  newInp.className = 'entry-new-input';
+  newInp.type = 'text';
+  newInp.placeholder = '+ พิมพ์รายการใหม่…';
+  newInp.maxLength = 40;
+  newInp.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && newInp.value.trim()) {
+      commitNew(newInp.value.trim());
+      newInp.value = '';
+    }
+  });
+  newInp.addEventListener('blur', () => {
+    if (newInp.value.trim()) { commitNew(newInp.value.trim()); newInp.value = ''; }
+  });
+  /* Also handle paste of multi-line text */
+  newInp.addEventListener('paste', e => {
+    e.preventDefault();
+    const pasted = (e.clipboardData || window.clipboardData).getData('text');
+    const lines = pasted.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+    if (lines.length > 1) {
+      lines.forEach(l => { if (!isDup(l)) items.push({ text: l }); });
+      renderList(); drawWheel(currentAngle); updateCount();
+      showToast(`วาง ${lines.length} รายการ`);
+    } else {
+      newInp.value = lines[0] || '';
+    }
+  });
+  newRow.appendChild(newInp);
+  list.appendChild(newRow);
+
+  updateCount();
+}
+
+function commitNew(text) {
+  if (isDup(text)) { showToast(`"${text}" มีอยู่แล้ว`); return; }
+  items.push({ text });
+  renderList();
+  drawWheel(currentAngle);
+  updateCount();
+  /* Focus the newly created input */
+  const rows = document.querySelectorAll('.entry-input');
+  if (rows[items.length - 1]) rows[items.length - 1].focus();
+}
+
+function isDup(text) { return items.some(i => i.text === text); }
+
+function updateCount() {
+  const real = items.filter(i => i.text.trim()).length;
+  document.getElementById('itemCount').textContent = `${real} รายการ`;
+}
+
+/* ── Init with one empty row ── */
+items.push({ text: '' });
+renderList();
+
+/* ═══════════════ TOOLBAR ══════════════ */
+function shuffleItems() {
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+  renderList(); drawWheel(currentAngle);
+}
+
+function sortItems() {
+  items.sort((a, b) => a.text.localeCompare(b.text, 'th'));
+  renderList(); drawWheel(currentAngle);
 }
 
 function clearAll() {
-  if (!numbers.length) return;
-  if (!confirm('ล้างหมายเลขทั้งหมดในวงล้อ?')) return;
-  numbers = [];
-  renderChips();
-  drawWheel(currentAngle);
+  if (!confirm('ล้างรายการทั้งหมด?')) return;
+  items = [{ text: '' }];
+  renderList(); drawWheel(currentAngle); updateCount();
 }
 
-/* ── Presets ── */
+/* ═══════════════ PRESETS ══════════════ */
 function addPreset(range) {
   const [lo, hi] = range.split('-').map(Number);
+  let added = 0;
   for (let n = lo; n <= hi; n++) {
     const s = String(n).padStart(3, '0');
-    if (!numbers.includes(s)) numbers.push(s);
+    if (!isDup(s)) { items.push({ text: s }); added++; }
   }
-  renderChips();
-  drawWheel(currentAngle);
+  /* Remove trailing empty placeholder if real items exist */
+  items = items.filter((it, idx) => it.text.trim() || idx === items.length - 1);
+  renderList(); drawWheel(currentAngle); updateCount();
+  showToast(`เพิ่ม ${added} รายการ`);
 }
 
-/* ── History ── */
+/* ═══════════════ HISTORY ══════════════ */
 function addHistory(val) {
   history.unshift(val);
   if (history.length > 40) history.pop();
   renderHistory();
 }
-
 function renderHistory() {
   const list = document.getElementById('historyList');
   list.innerHTML = '';
-  if (!history.length) {
-    list.innerHTML = '<span style="color:var(--muted);font-size:.8rem;">ยังไม่มีผล</span>';
-    return;
-  }
+  if (!history.length) { list.innerHTML = '<span class="empty-text">ยังไม่มีผล</span>'; return; }
   history.forEach((v, i) => {
     const c = document.createElement('span');
     c.className = 'h-chip';
     c.textContent = v;
-    c.style.animationDelay = i === 0 ? '0ms' : `${i * 25}ms`;
+    c.style.animationDelay = i === 0 ? '0ms' : `${i * 20}ms`;
     list.appendChild(c);
   });
 }
+function clearHistory() { history = []; renderHistory(); }
 
-function clearHistory() {
-  history = [];
-  renderHistory();
-}
-
-/* ── Win effect ── */
+/* ═══════════════ WIN EFFECT ══════════════ */
 function triggerWinEffect() {
-  const flash = document.getElementById('winFlash');
-  flash.classList.add('show');
-  setTimeout(() => flash.classList.remove('show'), 500);
+  document.getElementById('winFlash').classList.add('show');
+  setTimeout(() => document.getElementById('winFlash').classList.remove('show'), 500);
   launchConfetti();
 }
 
-/* ── Confetti ── */
-const confCanvas = document.getElementById('confetti');
-const confCtx    = confCanvas.getContext('2d');
-let   particles  = [];
-
-function resizeConf() {
-  confCanvas.width  = window.innerWidth;
-  confCanvas.height = window.innerHeight;
-}
-resizeConf();
-window.addEventListener('resize', resizeConf);
-
+/* ═══════════════ CONFETTI ══════════════ */
+const cc   = document.getElementById('confetti');
+const cctx = cc.getContext('2d');
+let parts  = [];
+function resizeCC() { cc.width = window.innerWidth; cc.height = window.innerHeight; }
+resizeCC(); window.addEventListener('resize', resizeCC);
 function launchConfetti() {
-  const colors = ['#f5c842','#00e5ff','#e03050','#ffffff','#fb923c','#a78bfa'];
-  for (let i = 0; i < 90; i++) {
-    particles.push({
-      x: Math.random() * confCanvas.width, y: -10,
-      vx: (Math.random() - .5) * 5, vy: Math.random() * 4 + 2,
-      size: Math.random() * 7 + 3,
-      color: colors[Math.floor(Math.random() * colors.length)],
-      rotation: Math.random() * Math.PI * 2,
-      rotSpeed: (Math.random() - .5) * .22,
-      alpha: 1,
-    });
-  }
-  requestAnimationFrame(animateConf);
+  const cols = ['#3db87a','#6dd49a','#a8e6bf','#ffffff','#2a9460','#b8f0d0','#52c48a','#e8faf0'];
+  for (let i = 0; i < 90; i++) parts.push({
+    x: Math.random() * cc.width, y: -10,
+    vx: (Math.random() - .5) * 5, vy: Math.random() * 4 + 2,
+    size: Math.random() * 7 + 3,
+    col: cols[Math.floor(Math.random() * cols.length)],
+    rot: Math.random() * Math.PI * 2, rs: (Math.random() - .5) * .22, a: 1,
+  });
+  requestAnimationFrame(animCC);
+}
+function animCC() {
+  cctx.clearRect(0, 0, cc.width, cc.height);
+  parts = parts.filter(p => p.a > .01);
+  parts.forEach(p => {
+    p.x += p.vx; p.y += p.vy; p.vy += .09; p.rot += p.rs; p.a -= .011;
+    cctx.save(); cctx.globalAlpha = p.a; cctx.translate(p.x, p.y); cctx.rotate(p.rot);
+    cctx.fillStyle = p.col; cctx.fillRect(-p.size/2, -p.size/2, p.size, p.size * .45);
+    cctx.restore();
+  });
+  if (parts.length) requestAnimationFrame(animCC);
 }
 
-function animateConf() {
-  confCtx.clearRect(0, 0, confCanvas.width, confCanvas.height);
-  particles = particles.filter(p => p.alpha > .01);
-  particles.forEach(p => {
-    p.x += p.vx; p.y += p.vy; p.vy += .09;
-    p.rotation += p.rotSpeed; p.alpha -= .011;
-    confCtx.save();
-    confCtx.globalAlpha = p.alpha;
-    confCtx.translate(p.x, p.y);
-    confCtx.rotate(p.rotation);
-    confCtx.fillStyle = p.color;
-    confCtx.fillRect(-p.size/2, -p.size/2, p.size, p.size * .45);
-    confCtx.restore();
-  });
-  if (particles.length > 0) requestAnimationFrame(animateConf);
-  else confCtx.clearRect(0, 0, confCanvas.width, confCanvas.height);
+/* ═══════════════ TOAST ══════════════ */
+function showToast(msg) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div'); t.id = 'toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._tm);
+  t._tm = setTimeout(() => t.classList.remove('show'), 2500);
 }
