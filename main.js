@@ -419,280 +419,60 @@ function showToast(msg) {
 }
 
 /* ═══════════════════════════════════════
-   AUDIO ENGINE — Web Audio API (no files)
+   AUDIO ENGINE — MP3 File Version
    ═══════════════════════════════════════ */
 
-let audioCtx      = null;
-let ambientNodes  = {};   // holds oscillators/gains for ambient loop
-let ambientOn     = false;
-let spinMusicNodes = [];  // holds nodes active during spin
-let audioReady    = false;
+/* ──────────────────────────────────────────────────────────
+   🎵 เปลี่ยนเพลง: แก้ path ใน 3 บรรทัดนี้
+   วางไฟล์เพลงไว้ใน folder  sounds/  ข้างๆ main.js
+────────────────────────────────────────────────────────── */
+const AUDIO_AMBIENT = new Audio('sounds/ambient.mp3');   // ← เพลงคลอ background
+const AUDIO_SPIN    = new Audio('sounds/spin.mp3');      // ← เพลงตอนหมุน
+const AUDIO_FANFARE = new Audio('sounds/fanfare.mp3');   // ← เสียงตอนได้ผล
 
-function getAudioCtx() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  return audioCtx;
-}
+/* ── ตั้งค่าเริ่มต้น ── */
+AUDIO_AMBIENT.loop   = true;   // วนซ้ำตลอด
+AUDIO_AMBIENT.volume = 0.4;    // ← ปรับเสียง ambient  (0.0 – 1.0)
+AUDIO_SPIN.volume    = 0.8;    // ← ปรับเสียง spin     (0.0 – 1.0)
+AUDIO_FANFARE.volume = 0.9;    // ← ปรับเสียง fanfare  (0.0 – 1.0)
 
-/* ── Master volume ── */
-function masterGain(vol = 0.18) {
-  const ac = getAudioCtx();
-  const g  = ac.createGain();
-  g.gain.value = vol;
-  g.connect(ac.destination);
-  return g;
-}
-
-/* ─────────────────────────────────────
-   AMBIENT MUSIC — gentle looping BGM
-   Simple pentatonic arpeggio + pad
-───────────────────────────────────── */
-const PENTA = [261.63, 293.66, 329.63, 392.00, 440.00,
-               523.25, 587.33, 659.25, 783.99, 880.00]; // C pentatonic x2
-
+/* ── ฟังก์ชันควบคุม (ไม่ต้องแก้) ── */
 function startAmbient() {
-  if (ambientOn) return;
-  ambientOn = true;
-  const ac  = getAudioCtx();
-  if (ac.state === 'suspended') ac.resume();
-
-  const master = ac.createGain();
-  master.gain.setValueAtTime(0, ac.currentTime);
-  master.gain.linearRampToValueAtTime(0.12, ac.currentTime + 2.5);
-  master.connect(ac.destination);
-
-  /* Reverb convolver (impulse) */
-  const reverb = makeReverb(ac, 2.5);
-  reverb.connect(master);
-
-  /* Soft pad — slow sine chords */
-  // const padFreqs = [261.63, 329.63, 392.00, 523.25];
-  // padFreqs.forEach(freq => {
-  //   const osc = ac.createOscillator();
-  //   const g   = ac.createGain();
-  //   osc.type = 'sine';
-  //   osc.frequency.value = freq;
-  //   g.gain.value = 0.04;
-  //   osc.connect(g); g.connect(reverb); g.connect(master);
-  //   osc.start();
-  //   ambientNodes[`pad_${freq}`] = { osc, g };
-  // });
-
-  /* Arpeggio — plucked notes looping */
-  let step = 0;
-  const BPM   = 96;
-  const beat  = 60 / BPM;
-  const NOTE_PATTERN = [0, 2, 4, 7, 5, 4, 2, 0, 1, 3, 5, 7]; // indices into PENTA
-
-  function scheduleArp() {
-    if (!ambientOn) return;
-    const now  = ac.currentTime;
-    const freq = PENTA[NOTE_PATTERN[step % NOTE_PATTERN.length]];
-    pluck(ac, freq, now, reverb, master, 0.09);
-    step++;
-    ambientNodes._arpTimer = setTimeout(scheduleArp, beat * 1000 * 0.5);
-  }
-  scheduleArp();
-
-  /* Bass note — long low tone */
-  const bass = ac.createOscillator();
-  const bassG = ac.createGain();
-  bass.type = 'triangle';
-  bass.frequency.value = 65.41; // C2
-  bassG.gain.value = 0.05;
-  bass.connect(bassG); bassG.connect(master);
-  bass.start();
-  ambientNodes.bass = { osc: bass, g: bassG };
-  ambientNodes.master = master;
+  AUDIO_AMBIENT.currentTime = 0;
+  AUDIO_AMBIENT.play().catch(() => {});
 }
 
-function stopAmbient(fade = 1.5) {
-  if (!ambientOn) return;
-  ambientOn = false;
-  clearTimeout(ambientNodes._arpTimer);
-  const ac = getAudioCtx();
-  if (ambientNodes.master) {
-    ambientNodes.master.gain.linearRampToValueAtTime(0, ac.currentTime + fade);
-  }
-  setTimeout(() => {
-    Object.values(ambientNodes).forEach(n => {
-      try { if (n.osc) n.osc.stop(); } catch(e) {}
-    });
-    ambientNodes = {};
-  }, (fade + 0.1) * 1000);
+function stopAmbient(fadeSecs = 1.0) {
+  // Fade out แทนหยุดทันที
+  const step = AUDIO_AMBIENT.volume / (fadeSecs * 20);
+  const timer = setInterval(() => {
+    if (AUDIO_AMBIENT.volume > step) {
+      AUDIO_AMBIENT.volume -= step;
+    } else {
+      AUDIO_AMBIENT.pause();
+      AUDIO_AMBIENT.volume = 0.4; // reset volume
+      clearInterval(timer);
+    }
+  }, 50);
 }
 
-/* ─────────────────────────────────────
-   SPIN MUSIC — exciting build-up
-───────────────────────────────────── */
 function startSpinMusic(duration) {
-  const ac = getAudioCtx();
-  if (ac.state === 'suspended') ac.resume();
-  stopAmbient(0.4);
-
-  const master = ac.createGain();
-  master.gain.value = 0.18;
-  master.connect(ac.destination);
-  spinMusicNodes = [master];
-
-  const reverb = makeReverb(ac, 1.2);
-  reverb.connect(master);
-
-  const now = ac.currentTime;
-
-  /* Rapid tick — accelerates then decelerates like the wheel */
-  const TICK_NOTES = [523.25, 659.25, 783.99, 1046.50];
-  const totalTicks = 28;
-  // ease-in then ease-out timing mirrors wheel physics
-  for (let i = 0; i < totalTicks; i++) {
-    const progress = i / totalTicks;
-    // fast in middle, slow at ends
-    const spacing  = duration / totalTicks * (0.3 + 1.4 * Math.abs(progress - 0.5) * 2);
-    const t        = now + (duration * easeForTick(i / totalTicks));
-    const freq     = TICK_NOTES[i % TICK_NOTES.length];
-    const vol      = 0.06 + progress * 0.1;
-    pluck(ac, freq, t, reverb, master, vol, 0.08);
-  }
-
-  /* Build-up chord swell — rises over the spin */
-  const chordFreqs = [261.63, 392.00, 523.25, 659.25];
-  chordFreqs.forEach((freq, ci) => {
-    const osc = ac.createOscillator();
-    const g   = ac.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.value = freq;
-    // filter for softer sound
-    const filter = ac.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 800;
-    filter.Q.value = 1;
-
-    g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(0.018, now + duration * 0.4);
-    g.gain.linearRampToValueAtTime(0.032, now + duration * 0.8);
-    g.gain.linearRampToValueAtTime(0,     now + duration);
-
-    osc.connect(filter); filter.connect(g);
-    g.connect(reverb); g.connect(master);
-    osc.start(now); osc.stop(now + duration + 0.1);
-    spinMusicNodes.push(osc, g, filter);
-  });
-
-  /* Drum: bass kick every beat */
-  const beatInterval = 60 / 110; // 110 BPM
-  let bt = now + 0.1;
-  while (bt < now + duration - 0.2) {
-    kick(ac, bt, master);
-    bt += beatInterval;
-  }
-  /* Snare on beats 2 & 4 */
-  let st = now + beatInterval;
-  while (st < now + duration - 0.2) {
-    snare(ac, st, master);
-    st += beatInterval * 2;
-  }
+  stopAmbient(0.3);
+  AUDIO_SPIN.currentTime = 0;
+  AUDIO_SPIN.play().catch(() => {});
 }
 
 function stopSpinMusic() {
-  const ac = getAudioCtx();
-  try {
-    if (spinMusicNodes[0]) {
-      spinMusicNodes[0].gain.linearRampToValueAtTime(0, ac.currentTime + 0.3);
-    }
-  } catch(e) {}
-  setTimeout(() => {
-    spinMusicNodes.forEach(n => { try { if (n.stop) n.stop(); } catch(e) {} });
-    spinMusicNodes = [];
-  }, 400);
+  AUDIO_SPIN.pause();
+  AUDIO_SPIN.currentTime = 0;
 }
 
 function playWinFanfare() {
-  const ac  = getAudioCtx();
-  const now = ac.currentTime;
-  const master = ac.createGain();
-  master.gain.value = 0.22;
-  master.connect(ac.destination);
-
-  // Rising arpeggio fanfare
-  const fanfare = [523.25, 659.25, 783.99, 1046.50, 1318.51];
-  fanfare.forEach((freq, i) => {
-    const t = now + i * 0.11;
-    pluck(ac, freq, t, null, master, 0.18, 0.35);
-  });
-  // Final chord
-  [523.25, 659.25, 783.99, 1046.50].forEach(freq => {
-    pluck(ac, freq, now + fanfare.length * 0.11, null, master, 0.14, 0.8);
-  });
-
-  // Restart ambient after fanfare settles
-  setTimeout(() => startAmbient(), 1800);
-}
-
-/* ─────────────────────────────────────
-   LOW-LEVEL SOUND PRIMITIVES
-───────────────────────────────────── */
-
-/* Karplus-Strong-ish pluck */
-function pluck(ac, freq, when, reverb, dest, vol = 0.1, dur = 0.25) {
-  const osc = ac.createOscillator();
-  const g   = ac.createGain();
-  osc.type = 'triangle';
-  osc.frequency.value = freq;
-  g.gain.setValueAtTime(vol, when);
-  g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
-  osc.connect(g);
-  if (reverb) g.connect(reverb);
-  g.connect(dest);
-  osc.start(when);
-  osc.stop(when + dur + 0.05);
-}
-
-/* Kick drum */
-function kick(ac, when, dest) {
-  const osc = ac.createOscillator();
-  const g   = ac.createGain();
-  osc.frequency.setValueAtTime(150, when);
-  osc.frequency.exponentialRampToValueAtTime(40, when + 0.12);
-  g.gain.setValueAtTime(0.3, when);
-  g.gain.exponentialRampToValueAtTime(0.001, when + 0.2);
-  osc.connect(g); g.connect(dest);
-  osc.start(when); osc.stop(when + 0.25);
-}
-
-/* Snare */
-function snare(ac, when, dest) {
-  const buf  = ac.createBuffer(1, ac.sampleRate * 0.15, ac.sampleRate);
-  const data = buf.getChannelData(0);
-  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1);
-  const src  = ac.createBufferSource();
-  const g    = ac.createGain();
-  const filt = ac.createBiquadFilter();
-  filt.type = 'highpass'; filt.frequency.value = 1800;
-  src.buffer = buf;
-  g.gain.setValueAtTime(0.12, when);
-  g.gain.exponentialRampToValueAtTime(0.001, when + 0.12);
-  src.connect(filt); filt.connect(g); g.connect(dest);
-  src.start(when);
-}
-
-/* Simple reverb impulse */
-function makeReverb(ac, secs = 2) {
-  const rate   = ac.sampleRate;
-  const len    = rate * secs;
-  const buf    = ac.createBuffer(2, len, rate);
-  for (let ch = 0; ch < 2; ch++) {
-    const d = buf.getChannelData(ch);
-    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
-  }
-  const conv = ac.createConvolver();
-  conv.buffer = buf;
-  return conv;
-}
-
-/* Ease helper for tick spacing */
-function easeForTick(t) {
-  return t < 0.5
-    ? 2 * t * t
-    : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  stopSpinMusic();
+  AUDIO_FANFARE.currentTime = 0;
+  AUDIO_FANFARE.play().catch(() => {});
+  // กลับมาเล่น ambient หลัง fanfare จบ
+  AUDIO_FANFARE.onended = () => startAmbient();
 }
 
 /* ─────────────────────────────────────
@@ -706,11 +486,10 @@ function initAudioButton() {
   btn.id = 'audioBtn';
   btn.innerHTML = '🔇 เปิดเสียง';
   btn.style.cssText = `
-    float:right; margin-top:2px;
     background: var(--accent-l); border: 1px solid var(--rim2);
     color: var(--accent2); font-family:'Kanit',sans-serif;
     font-size:.78rem; font-weight:600; padding:5px 14px;
-    border-radius:20px; cursor:pointer;
+    border-radius:20px; cursor:pointer; flex-shrink:0;
     transition: background .15s, border-color .15s;
   `;
   btn.onclick = toggleAudio;
