@@ -203,6 +203,24 @@ function renderList() {
         if (target) { target.focus(); target.setSelectionRange(target.value.length, target.value.length); }
       }
     });
+    /* Paste multi-line into existing row */
+    inp.addEventListener('paste', e => {
+      const pasted = (e.clipboardData || window.clipboardData).getData('text');
+      const lines = pasted.split(/\r?\n|\t/).map(s => s.trim()).filter(Boolean);
+      if (lines.length <= 1) return; // let normal paste handle single line
+      e.preventDefault();
+      // Replace current row with first line, insert rest below
+      items[i].text = lines[0];
+      const newItems = lines.slice(1).map(t => ({ text: t }));
+      items.splice(i + 1, 0, ...newItems);
+      renderList();
+      drawWheel(currentAngle);
+      updateCount();
+      showToast(`วาง ${lines.length} รายการ`);
+      // Focus last inserted row
+      const rows = document.querySelectorAll('.entry-input');
+      if (rows[i + lines.length - 1]) rows[i + lines.length - 1].focus();
+    });
 
     /* Delete button */
     const del = document.createElement('button');
@@ -245,11 +263,15 @@ function renderList() {
   newInp.addEventListener('paste', e => {
     e.preventDefault();
     const pasted = (e.clipboardData || window.clipboardData).getData('text');
-    const lines = pasted.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+    // Split by newline (\r\n, \n) or tab — covers Google Sheets single-column copy
+    const lines = pasted.split(/\r?\n|\t/).map(s => s.trim()).filter(Boolean);
     if (lines.length > 1) {
-      lines.forEach(l => { if (!isDup(l)) items.push({ text: l }); });
+      let added = 0;
+      // Remove trailing empty placeholder before inserting
+      items = items.filter(it => it.text.trim());
+      lines.forEach(l => { if (!isDup(l)) { items.push({ text: l }); added++; } });
       renderList(); drawWheel(currentAngle); updateCount();
-      showToast(`วาง ${lines.length} รายการ`);
+      showToast(`วาง ${added} รายการ${added < lines.length ? ` (ข้าม ${lines.length - added} ซ้ำ)` : ''}`);
     } else {
       newInp.value = lines[0] || '';
     }
