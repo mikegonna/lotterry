@@ -41,16 +41,40 @@
   <!-- Number Manager -->
   <div class="manager">
     <p class="manager-title">จัดการหมายเลขในวงล้อ</p>
-    <div class="add-row">
-      <input class="add-input" id="numInput" type="text"
-        placeholder="พิมพ์เลข หรือข้อความ..."
-        maxlength="10"
-        onkeydown="if(event.key==='Enter') addNumber()">
-      <button class="add-btn" onclick="addNumber()">+ เพิ่ม</button>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" id="tabSingle" onclick="switchTab('single')">เพิ่มทีละรายการ</button>
+      <button class="tab"        id="tabBulk"   onclick="switchTab('bulk')">เพิ่มหลายรายการ</button>
     </div>
+
+    <!-- Single add -->
+    <div class="tab-panel" id="panelSingle">
+      <div class="add-row">
+        <input class="add-input" id="numInput" type="text"
+          placeholder="พิมพ์เลข หรือข้อความ..."
+          maxlength="20"
+          onkeydown="if(event.key==='Enter') addNumber()">
+        <button class="add-btn" onclick="addNumber()">+ เพิ่ม</button>
+      </div>
+    </div>
+
+    <!-- Bulk add -->
+    <div class="tab-panel hidden" id="panelBulk">
+      <textarea class="bulk-input" id="bulkInput"
+        placeholder="วางรายการได้เลย — 1 บรรทัด = 1 รายการ&#10;&#10;เช่น&#10;001&#10;002&#10;003&#10;หรือคั่นด้วยจุลภาค: 001, 002, 003"></textarea>
+      <div class="bulk-row">
+        <span class="bulk-hint" id="bulkHint">0 รายการ</span>
+        <button class="add-btn" onclick="addBulk()">+ เพิ่มทั้งหมด</button>
+      </div>
+    </div>
+
+    <!-- Chips -->
     <div class="chips-grid" id="chipsGrid">
       <span class="chips-empty">ยังไม่มีหมายเลข — เพิ่มด้านบนได้เลย</span>
     </div>
+
+    <!-- Presets + clear -->
     <div class="presets">
       <span class="preset-label">เพิ่มด่วน:</span>
       <button class="preset-btn" onclick="addPreset('000-099')">000–099</button>

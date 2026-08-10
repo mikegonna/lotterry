@@ -209,6 +209,87 @@ document.getElementById('modalOverlay').addEventListener('click', function(e) {
   if (e.target === this) closeModal();
 });
 
+/* ── Tabs ── */
+function switchTab(tab) {
+  document.getElementById('panelSingle').classList.toggle('hidden', tab !== 'single');
+  document.getElementById('panelBulk').classList.toggle('hidden',  tab !== 'bulk');
+  document.getElementById('tabSingle').classList.toggle('active', tab === 'single');
+  document.getElementById('tabBulk').classList.toggle('active',   tab === 'bulk');
+}
+
+/* ── Bulk add ── */
+function parseBulkInput(raw) {
+  /* Accept newline-separated OR comma-separated, trim whitespace, drop empty */
+  return raw
+    .split(/[\n,]+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+}
+
+function addBulk() {
+  const raw   = document.getElementById('bulkInput').value;
+  const items = parseBulkInput(raw);
+  if (!items.length) return;
+
+  let added = 0, skipped = 0;
+  items.forEach(val => {
+    const v = val.slice(0, 20); // max length guard
+    if (numbers.includes(v)) { skipped++; return; }
+    numbers.push(v);
+    added++;
+  });
+
+  document.getElementById('bulkInput').value = '';
+  document.getElementById('bulkHint').textContent = '0 รายการ';
+  renderChips();
+  drawWheel(currentAngle);
+
+  if (skipped > 0) {
+    const msg = added > 0
+      ? `เพิ่ม ${added} รายการ (ข้าม ${skipped} รายการที่ซ้ำ)`
+      : `ทุกรายการซ้ำกับที่มีอยู่แล้ว (${skipped} รายการ)`;
+    showToast(msg);
+  }
+}
+
+/* Live count hint while typing in bulk textarea */
+document.addEventListener('DOMContentLoaded', () => {
+  const bulkInput = document.getElementById('bulkInput');
+  if (bulkInput) {
+    bulkInput.addEventListener('input', () => {
+      const count = parseBulkInput(bulkInput.value).length;
+      document.getElementById('bulkHint').textContent =
+        count > 0 ? `${count} รายการ` : '0 รายการ';
+    });
+  }
+});
+
+/* ── Toast notification ── */
+function showToast(msg) {
+  let toast = document.getElementById('toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.style.cssText = `
+      position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(20px);
+      background:#1e1e30; border:1px solid rgba(255,255,255,.12);
+      color:#f0f0f8; font-family:'Kanit',sans-serif; font-size:.85rem;
+      padding:10px 20px; border-radius:20px; z-index:300;
+      opacity:0; transition:opacity .25s, transform .25s; white-space:nowrap;
+      box-shadow:0 4px 20px rgba(0,0,0,.5);
+    `;
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  toast.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(-50%) translateY(20px)';
+  }, 2800);
+}
+
 /* ── Number Manager ── */
 function addNumber() {
   const input = document.getElementById('numInput');
