@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>จับสลากรางวัล</title>
+<title>จับสลากรางวัล — วงล้อ</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,18 +11,14 @@
 <canvas id="confetti"></canvas>
 <div class="win-flash" id="winFlash"></div>
 
-<!-- Result Popup -->
+<!-- Result Modal -->
 <div class="modal-overlay" id="modalOverlay">
-  <div class="modal" id="modal">
+  <div class="modal">
     <div class="modal-icon">🎉</div>
-    <p class="modal-eyebrow">ผลการจับสลาก</p>
-    <p class="modal-title">หมายเลขที่ได้รับคือ</p>
-    <div class="modal-digits-row">
-      <div class="modal-digit-box" id="popDigit0"></div>
-      <div class="modal-digit-box" id="popDigit1"></div>
-      <div class="modal-digit-box" id="popDigit2"></div>
-    </div>
-    <button class="modal-close-btn" onclick="closeModal()">✓ รับทราบ</button>
+    <p class="modal-sub">ผลการจับสลาก</p>
+    <p class="modal-label">หมายเลขที่ได้รับคือ</p>
+    <div class="modal-number" id="modalNumber">—</div>
+    <button class="modal-close" onclick="closeModal()">✓ รับทราบ</button>
   </div>
 </div>
 
@@ -30,47 +26,47 @@
 
   <div class="header">
     <p class="eyebrow">ระบบจับสลาก</p>
-    <h1>🎰 จับ<span>สลาก</span>รางวัล</h1>
+    <h1>🎡 วงล้อ<span>สลาก</span>รางวัล</h1>
   </div>
 
-  <div class="machine">
-    <div class="reels-row">
-      <div class="reel-wrapper">
-        <div class="reel" id="reel0">
-          <div class="reel-strip" id="strip0"></div>
-          <div class="reel-center-line"></div>
-        </div>
-      </div>
-      <div class="reel-sep">–</div>
-      <div class="reel-wrapper">
-        <div class="reel" id="reel1">
-          <div class="reel-strip" id="strip1"></div>
-          <div class="reel-center-line"></div>
-        </div>
-      </div>
-      <div class="reel-sep">–</div>
-      <div class="reel-wrapper">
-        <div class="reel" id="reel2">
-          <div class="reel-strip" id="strip2"></div>
-          <div class="reel-center-line"></div>
-        </div>
-      </div>
+  <!-- Wheel -->
+  <div class="wheel-section">
+    <div class="wheel-container">
+      <div class="wheel-pointer"></div>
+      <canvas id="wheel" width="320" height="320"></canvas>
     </div>
-
-    <div class="result-box">
-      <div class="result-number" id="resultNumber">000</div>
-      <div class="result-label" id="resultLabel">กด "ปั่น" เพื่อเริ่มจับสลาก</div>
-    </div>
-
-    <button class="spin-btn" id="spinBtn" onclick="spin()">🎲 ปั่นสลาก</button>
+    <button class="spin-btn" id="spinBtn" onclick="spinWheel()">🎲 หมุนวงล้อ</button>
   </div>
 
+  <!-- Number Manager -->
+  <div class="manager">
+    <p class="manager-title">จัดการหมายเลขในวงล้อ</p>
+    <div class="add-row">
+      <input class="add-input" id="numInput" type="text"
+        placeholder="พิมพ์เลข หรือข้อความ..."
+        maxlength="10"
+        onkeydown="if(event.key==='Enter') addNumber()">
+      <button class="add-btn" onclick="addNumber()">+ เพิ่ม</button>
+    </div>
+    <div class="chips-grid" id="chipsGrid">
+      <span class="chips-empty">ยังไม่มีหมายเลข — เพิ่มด้านบนได้เลย</span>
+    </div>
+    <div class="presets">
+      <span class="preset-label">เพิ่มด่วน:</span>
+      <button class="preset-btn" onclick="addPreset('000-099')">000–099</button>
+      <button class="preset-btn" onclick="addPreset('100-199')">100–199</button>
+      <button class="preset-btn" onclick="addPreset('200-299')">200–299</button>
+      <button class="clear-all-btn" onclick="clearAll()">ล้างทั้งหมด</button>
+    </div>
+  </div>
+
+  <!-- History -->
   <div class="history">
-    <p class="history-title">ผลการจับสลากล่าสุด</p>
+    <p class="history-title">ผลล่าสุด</p>
     <div class="history-list" id="historyList">
-      <span style="color:var(--muted);font-size:.8rem;font-family:'Kanit',sans-serif;">ยังไม่มีการจับสลาก</span>
+      <span style="color:var(--muted);font-size:.8rem;">ยังไม่มีผล</span>
     </div>
-    <button class="clear-btn" onclick="clearHistory()">ล้างประวัติ</button>
+    <button class="history-clear" onclick="clearHistory()">ล้างประวัติ</button>
   </div>
 
 </div>
