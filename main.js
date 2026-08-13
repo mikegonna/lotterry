@@ -157,6 +157,20 @@ function onSpinEnd(idx) {
 
 /* ═══════════════ MODAL ══════════════ */
 function closeModal() { document.getElementById('modalOverlay').classList.remove('show'); }
+
+function removeAndClose() {
+  const winner = document.getElementById('modalNumber').textContent;
+  const idx = items.findIndex(it => it.text === winner);
+  if (idx !== -1) {
+    items.splice(idx, 1);
+    if (items.length === 0) items.push({ text: '' });
+    renderList();
+    drawWheel(currentAngle);
+    updateCount();
+  }
+  closeModal();
+}
+
 document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target.id === 'modalOverlay') closeModal(); });
 
 /* ═══════════════ ENTRY LIST (wheelofnames style) ══════════════ */

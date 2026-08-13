@@ -81,7 +81,7 @@ body::before {
 
 .wheel-wrap {
   position: relative;
-  width: 420px; height: 420px; flex-shrink: 0;
+  width: 540px; height: 540px; flex-shrink: 0;
 }
 
 .wheel-pointer {
@@ -97,7 +97,7 @@ body::before {
 }
 
 canvas#wheel {
-  width: 420px; height: 420px;
+  width: 540px; height: 540px;
   border-radius: 50%;
   display: block;
   box-shadow:
@@ -125,7 +125,7 @@ canvas#wheel {
 
 /* History box */
 .history-box {
-  width: 100%; max-width: 420px;
+  width: 100%; max-width: 540px;
   background: var(--panel);
   border: 1px solid var(--rim);
   border-radius: 14px; overflow: hidden;
@@ -288,8 +288,8 @@ canvas#wheel {
 .modal {
   background: var(--panel);
   border: 2px solid var(--accent);
-  border-radius: 28px; padding: 40px 36px 32px;
-  text-align: center; max-width: 320px; width: 90%;
+  border-radius: 28px; padding: 40px 40px 32px;
+  text-align: center; max-width: 600px; width: 92%;
   position: relative;
   box-shadow: 0 20px 60px rgba(61,184,122,.2), 0 2px 0 var(--rim) inset;
   transform: scale(.85) translateY(24px); opacity: 0;
@@ -313,8 +313,12 @@ canvas#wheel {
   animation: numPop .45s cubic-bezier(.34,1.56,.64,1) .28s both;
 }
 @keyframes numPop { from { transform: scale(.55); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal-btn-row {
+  display: flex; flex-direction: row; gap: 10px;
+}
 .modal-close {
-  width: 100%; padding: 13px;
+  flex: 1; min-width: 0;
+  padding: 13px;
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
   color: #fff; font-family: 'Kanit', sans-serif;
   font-size: 1rem; font-weight: 700;
@@ -323,6 +327,23 @@ canvas#wheel {
   transition: transform .12s, box-shadow .12s;
 }
 .modal-close:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(61,184,122,.5); }
+.modal-close--outline {
+  background: none !important;
+  border: 2px solid var(--rim) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+}
+.modal-close--outline:hover {
+  border-color: var(--accent) !important;
+  color: var(--accent2) !important;
+}
+.modal-close--red {
+  background: linear-gradient(135deg, #e05060 0%, #b83040 100%) !important;
+  box-shadow: 0 4px 16px rgba(224,80,96,.3) !important;
+}
+.modal-close--red:hover {
+  box-shadow: 0 8px 24px rgba(224,80,96,.45) !important;
+}
 
 /* Misc */
 @keyframes chipIn { from { opacity: 0; transform: scale(.8); } to { opacity: 1; transform: scale(1); } }
