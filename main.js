@@ -4,9 +4,12 @@
 
 /* ── Palette ── */
 const PALETTE = [
-  '#6dd49a','#a8e6bf','#3db87a','#b8f0d0',
-  '#52c48a','#d4f5e2','#2a9460','#7de0aa',
-  '#c6f0d8','#45c97e','#e8faf0','#5bd494',
+  '#3db87a','#e85d75','#4a90d9','#f5a623',
+  '#9b59b6','#2eccc7','#e67e22','#5dade2',
+  '#e74c8b','#1abc9c','#d4ac0d','#8e44ad',
+  '#27ae60','#e84393','#2980b9','#f39c12',
+  '#16a085','#c0392b','#6c5ce7','#00b894',
+  '#fd79a8','#0984e3','#fdcb6e','#6c5ce7',
 ];
 
 /* ── State ── */
@@ -44,41 +47,64 @@ function drawWheel(rot) {
     ctx.closePath();
     ctx.fillStyle = col;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,.3)';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(255,255,255,.5)';
+    ctx.lineWidth = 2;
     ctx.stroke();
 
-    /* Label */
+    /* Label — ชิดขอบ เหมือน wheelofnames */
     ctx.save();
     ctx.translate(CX, CY);
     ctx.rotate(a0 + slice / 2);
-    const dist = n <= 6 ? R * .58 : n <= 14 ? R * .64 : R * .70;
-    ctx.translate(dist, 0);
-    const fs = n <= 4 ? 18 : n <= 8 ? 14 : n <= 16 ? 11 : n <= 30 ? 9 : 7;
-    ctx.font = `700 ${fs}px 'Kanit', sans-serif`;
-    ctx.fillStyle = '#1e3a2a';
-    ctx.textAlign = 'center';
+
+    // Clip to segment
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, R - 1, -slice / 2, slice / 2);
+    ctx.closePath();
+    ctx.clip();
+
+    const capR   = 26;                 // รัศมี centre cap
+    const innerR = capR + 4;          // เริ่มวาดข้อความหลัง cap
+    const outerR = R - 6;             // สิ้นสุดก่อนขอบ
+    const textLen = outerR - innerR;  // ความยาวพื้นที่วาดข้อความ
+
+    // ความกว้างช่องที่กึ่งกลาง (สำหรับกำหนด font size)
+    const midR = innerR + textLen * 0.5;
+    const arcW = 2 * midR * Math.tan(slice / 2) * 0.78;
+
+    // Font size: เหมาะกับความกว้างช่อง min 11 max 20
+    const fs = Math.min(20, Math.max(11, Math.floor(arcW * 0.6)));
+    ctx.font = `900 ${fs}px 'Kanit', sans-serif`;
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'right';          // ชิดขอบขวา (= ชิดขอบวงล้อ)
     ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(255,255,255,.35)';
-    ctx.shadowBlur  = 3;
-    const maxLen = n > 20 ? 6 : 10;
-    const txt = label.length > maxLen ? label.slice(0, maxLen - 1) + '…' : label;
-    ctx.fillText(txt, 0, 0);
+    ctx.strokeStyle = 'rgba(0,0,0,.5)';
+    ctx.lineWidth = 3;
+    ctx.lineJoin = 'round';
+    ctx.shadowColor = 'rgba(0,0,0,.6)';
+    ctx.shadowBlur  = 4;
+
+    // Truncate ให้พอดีกับ textLen
+    let txt = label;
+    while (txt.length > 1 && ctx.measureText(txt).width > textLen) {
+      txt = txt.slice(0, -1);
+    }
+    if (txt !== label) txt = txt.slice(0, -1) + '…';
+
+    ctx.strokeText(txt, outerR, 0);
+    ctx.shadowBlur = 0;
+    ctx.fillText(txt, outerR, 0);
     ctx.restore();
   });
 
-  /* Centre cap */
+  /* Centre cap — white like wheelofnames */
   ctx.beginPath();
-  ctx.arc(CX, CY, 20, 0, Math.PI * 2);
-  ctx.fillStyle = '#0d0d18';
+  ctx.arc(CX, CY, 26, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffffff';
   ctx.fill();
-  ctx.strokeStyle = 'rgba(245,200,66,.55)';
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(0,0,0,.15)';
+  ctx.lineWidth = 2;
   ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(CX, CY, 6, 0, Math.PI * 2);
-  ctx.fillStyle = '#f5c842';
-  ctx.fill();
 }
 
 function drawEmpty() {
@@ -114,8 +140,8 @@ function spinWheel() {
   const sliceAngle = (2 * Math.PI) / n;
   const extraSpins = (5 + Math.floor(Math.random() * 4)) * 2 * Math.PI;
 
-  /* Target angle: winning slice centre lands at pointer (top = -π/2) */
-  const targetAngle = -Math.PI / 2 - winIdx * sliceAngle - sliceAngle / 2;
+  /* Target angle: winning slice centre lands at pointer (right = 0) */
+  const targetAngle = -winIdx * sliceAngle - sliceAngle / 2;
   const offset = ((targetAngle - currentAngle) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
   const totalDelta = extraSpins + offset;
 
@@ -397,7 +423,7 @@ let parts  = [];
 function resizeCC() { cc.width = window.innerWidth; cc.height = window.innerHeight; }
 resizeCC(); window.addEventListener('resize', resizeCC);
 function launchConfetti() {
-  const cols = ['#3db87a','#6dd49a','#a8e6bf','#ffffff','#2a9460','#b8f0d0','#52c48a','#e8faf0'];
+  const cols = ['#3db87a','#e85d75','#4a90d9','#f5a623','#9b59b6','#2eccc7','#e74c8b','#fdcb6e','#ffffff'];
   for (let i = 0; i < 90; i++) parts.push({
     x: Math.random() * cc.width, y: -10,
     vx: (Math.random() - .5) * 5, vy: Math.random() * 4 + 2,

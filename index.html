@@ -16,7 +16,7 @@
   <div class="modal">
     <div class="modal-icon">🎉</div>
     <p class="modal-sub">ผลการจับสลาก</p>
-    <p class="modal-label">รายการที่ได้รับคือ</p>
+    <p class="modal-label">ผู้โชคดีคือ</p>
     <div class="modal-number" id="modalNumber">—</div>
     <div class="modal-btn-row">
       <button class="modal-close modal-close--outline" onclick="closeModal()">✓ รับทราบ</button>
@@ -38,8 +38,8 @@
     <!-- LEFT: Wheel -->
     <div class="wheel-col">
       <div class="wheel-wrap">
+          <canvas id="wheel" width="740" height="740"></canvas>
         <div class="wheel-pointer"></div>
-        <canvas id="wheel" width="740" height="740"></canvas>
       </div>
       <button class="spin-btn" id="spinBtn" onclick="spinWheel()">
         <span class="spin-icon">▶</span> หมุนวงล้อ
