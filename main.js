@@ -447,8 +447,8 @@ const AUDIO_FANFARE = new Audio('sounds/fanfare.mp3');   // ← เสียง�
 /* ── ตั้งค่าเริ่มต้น ── */
 AUDIO_AMBIENT.loop   = true;   // วนซ้ำตลอด
 AUDIO_AMBIENT.volume = 0.4;    // ← ปรับเสียง ambient  (0.0 – 1.0)
-AUDIO_SPIN.volume    = 0.8;    // ← ปรับเสียง spin     (0.0 – 1.0)
-AUDIO_FANFARE.volume = 0.9;    // ← ปรับเสียง fanfare  (0.0 – 1.0)
+AUDIO_SPIN.volume    = 1.0;    // ← ปรับเสียง spin     (0.0 – 1.0)
+AUDIO_FANFARE.volume = 1.0;    // ← ปรับเสียง fanfare  (0.0 – 1.0)
 
 /* ── ฟังก์ชันควบคุม (ไม่ต้องแก้) ── */
 function startAmbient() {
