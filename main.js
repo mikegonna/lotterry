@@ -13,55 +13,95 @@ const PALETTE = [
 ];
 
 /* ── State ── */
-let items    = [];   // { text: string }
+const STORAGE_KEY = 'lottery-wheel-state-v1';
+
+function normalizeItems(values) {
+  const seen = new Set();
+  const normalized = [];
+  (Array.isArray(values) ? values : []).forEach(value => {
+    const text = String(typeof value === 'string' ? value : value?.text ?? '').trim().slice(0, 40);
+    const key = text.toLocaleLowerCase();
+    if (!text || seen.has(key)) return;
+    seen.add(key);
+    normalized.push({ text });
+  });
+  return normalized.length ? normalized : [{ text: '' }];
+}
+
+function loadSavedState() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
+  catch { return {}; }
+}
+
+const savedState = loadSavedState();
+let items = normalizeItems(savedState.items);
 let spinning = false;
-let history  = [];
+let history = Array.isArray(savedState.history) ? savedState.history.slice(0, 40).map(String) : [];
+let undoSnapshot = null;
+let modalReturnFocus = null;
 
 /* ── Canvas ── */
 const canvas = document.getElementById('wheel');
 const ctx    = canvas.getContext('2d');
-const CX = canvas.width / 2;
-const CY = canvas.height / 2;
+const WHEEL_SIZE = 740;
+const CX = WHEEL_SIZE / 2;
+const CY = WHEEL_SIZE / 2;
 const R  = CX - 10;
+const wheelBuffer = document.createElement('canvas');
+wheelBuffer.width = WHEEL_SIZE;
+wheelBuffer.height = WHEEL_SIZE;
+const bctx = wheelBuffer.getContext('2d');
 let currentAngle = 0;
 
 /* ═══════════════ WHEEL DRAW ══════════════ */
-function drawWheel(rot) {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const texts = items.map(i => i.text);
+function getEligibleItems() { return items.filter(item => item.text.trim()); }
 
-  if (texts.length === 0) { drawEmpty(); return; }
+function drawWheel(rot, refresh = true) {
+  if (refresh) renderWheelBase();
+  ctx.clearRect(0, 0, WHEEL_SIZE, WHEEL_SIZE);
+  ctx.save();
+  ctx.translate(CX, CY);
+  ctx.rotate(rot);
+  ctx.drawImage(wheelBuffer, -CX, -CY);
+  ctx.restore();
+}
+
+function renderWheelBase() {
+  bctx.clearRect(0, 0, WHEEL_SIZE, WHEEL_SIZE);
+  const texts = getEligibleItems().map(item => item.text);
+
+  if (texts.length === 0) { drawEmpty(bctx); return; }
 
   const n     = texts.length;
   const slice = (2 * Math.PI) / n;
 
   texts.forEach((label, i) => {
-    const a0 = rot + i * slice;
+    const a0 = i * slice;
     const a1 = a0 + slice;
     const col = PALETTE[i % PALETTE.length];
 
     /* Segment */
-    ctx.beginPath();
-    ctx.moveTo(CX, CY);
-    ctx.arc(CX, CY, R, a0, a1);
-    ctx.closePath();
-    ctx.fillStyle = col;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,.5)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    bctx.beginPath();
+    bctx.moveTo(CX, CY);
+    bctx.arc(CX, CY, R, a0, a1);
+    bctx.closePath();
+    bctx.fillStyle = col;
+    bctx.fill();
+    bctx.strokeStyle = 'rgba(255,255,255,.5)';
+    bctx.lineWidth = 2;
+    bctx.stroke();
 
     /* Label — ชิดขอบ เหมือน wheelofnames */
-    ctx.save();
-    ctx.translate(CX, CY);
-    ctx.rotate(a0 + slice / 2);
+    bctx.save();
+    bctx.translate(CX, CY);
+    bctx.rotate(a0 + slice / 2);
 
     // Clip to segment
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.arc(0, 0, R - 1, -slice / 2, slice / 2);
-    ctx.closePath();
-    ctx.clip();
+    bctx.beginPath();
+    bctx.moveTo(0, 0);
+    bctx.arc(0, 0, R - 1, -slice / 2, slice / 2);
+    bctx.closePath();
+    bctx.clip();
 
     const capR   = 26;                 // รัศมี centre cap
     const innerR = capR + 4;          // เริ่มวาดข้อความหลัง cap
@@ -74,57 +114,73 @@ function drawWheel(rot) {
 
     // Font size: เหมาะกับความกว้างช่อง min 11 max 20
     const fs = Math.min(20, Math.max(11, Math.floor(arcW * 0.6)));
-    ctx.font = `900 ${fs}px 'Kanit', sans-serif`;
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'right';          // ชิดขอบขวา (= ชิดขอบวงล้อ)
-    ctx.textBaseline = 'middle';
-    ctx.strokeStyle = 'rgba(0,0,0,.5)';
-    ctx.lineWidth = 3;
-    ctx.lineJoin = 'round';
-    ctx.shadowColor = 'rgba(0,0,0,.6)';
-    ctx.shadowBlur  = 4;
+    bctx.font = `900 ${fs}px 'Kanit', sans-serif`;
+    bctx.fillStyle = '#ffffff';
+    bctx.textAlign = 'right';
+    bctx.textBaseline = 'middle';
+    bctx.strokeStyle = 'rgba(0,0,0,.5)';
+    bctx.lineWidth = 3;
+    bctx.lineJoin = 'round';
+    bctx.shadowColor = 'rgba(0,0,0,.6)';
+    bctx.shadowBlur  = 4;
 
     // Truncate ให้พอดีกับ textLen
     let txt = label;
-    while (txt.length > 1 && ctx.measureText(txt).width > textLen) {
+    while (txt.length > 1 && bctx.measureText(txt).width > textLen) {
       txt = txt.slice(0, -1);
     }
     if (txt !== label) txt = txt.slice(0, -1) + '…';
 
-    ctx.strokeText(txt, outerR, 0);
-    ctx.shadowBlur = 0;
-    ctx.fillText(txt, outerR, 0);
-    ctx.restore();
+    bctx.strokeText(txt, outerR, 0);
+    bctx.shadowBlur = 0;
+    bctx.fillText(txt, outerR, 0);
+    bctx.restore();
   });
 
   /* Centre cap — white like wheelofnames */
-  ctx.beginPath();
-  ctx.arc(CX, CY, 26, 0, Math.PI * 2);
-  ctx.fillStyle = '#ffffff';
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(0,0,0,.15)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  bctx.beginPath();
+  bctx.arc(CX, CY, 26, 0, Math.PI * 2);
+  bctx.fillStyle = '#ffffff';
+  bctx.fill();
+  bctx.strokeStyle = 'rgba(0,0,0,.15)';
+  bctx.lineWidth = 2;
+  bctx.stroke();
 }
 
-function drawEmpty() {
-  ctx.beginPath();
-  ctx.arc(CX, CY, R, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(255,255,255,.07)';
-  ctx.lineWidth = 2; ctx.setLineDash([10, 8]); ctx.stroke(); ctx.setLineDash([]);
-  ctx.font = '600 14px Kanit, sans-serif';
-  ctx.fillStyle = 'rgba(255,255,255,.2)';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('เพิ่มรายการทางขวามือ', CX, CY);
+function drawEmpty(target = bctx) {
+  target.beginPath();
+  target.arc(CX, CY, R, 0, Math.PI * 2);
+  target.strokeStyle = 'rgba(255,255,255,.07)';
+  target.lineWidth = 2; target.setLineDash([10, 8]); target.stroke(); target.setLineDash([]);
+  target.font = '600 14px Kanit, sans-serif';
+  target.fillStyle = 'rgba(255,255,255,.2)';
+  target.textAlign = 'center'; target.textBaseline = 'middle';
+  target.fillText('เพิ่มรายการทางขวามือ', CX, CY);
+}
+
+function resizeWheelCanvas() {
+  const bounds = canvas.getBoundingClientRect();
+  if (!bounds.width) return;
+  const backingSize = Math.round(bounds.width * Math.min(window.devicePixelRatio || 1, 2));
+  if (canvas.width !== backingSize || canvas.height !== backingSize) {
+    canvas.width = backingSize;
+    canvas.height = backingSize;
+  }
+  ctx.setTransform(backingSize / WHEEL_SIZE, 0, 0, backingSize / WHEEL_SIZE, 0, 0);
+  drawWheel(currentAngle, false);
 }
 
 drawWheel(currentAngle);
+new ResizeObserver(resizeWheelCanvas).observe(canvas);
+window.addEventListener('resize', resizeWheelCanvas);
 
 /* ═══════════════ SPIN ══════════════ */
 function spinWheel() {
   if (spinning) return;
-  if (items.length < 2) { showToast('ต้องมีอย่างน้อย 2 รายการ'); return; }
+  const eligibleItems = getEligibleItems();
+  if (eligibleItems.length < 2) { showToast('ต้องมีอย่างน้อย 2 รายการที่ไม่ว่าง'); return; }
   spinning = true;
+  setEditorLocked(true);
 
   const btn = document.getElementById('spinBtn');
   btn.disabled = true;
@@ -135,17 +191,19 @@ function spinWheel() {
     startSpinMusic(approxDuration / 1000);
   }
 
-  const n          = items.length;
+  const n          = eligibleItems.length;
   const winIdx     = Math.floor(Math.random() * n);
+  const winner     = eligibleItems[winIdx].text;
   const sliceAngle = (2 * Math.PI) / n;
-  const extraSpins = (5 + Math.floor(Math.random() * 4)) * 2 * Math.PI;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const extraSpins = (reducedMotion ? 1 : 5 + Math.floor(Math.random() * 4)) * 2 * Math.PI;
 
   /* Target angle: winning slice centre lands at pointer (right = 0) */
   const targetAngle = -winIdx * sliceAngle - sliceAngle / 2;
   const offset = ((targetAngle - currentAngle) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
   const totalDelta = extraSpins + offset;
 
-  const duration  = 4000 + Math.random() * 1000;
+  const duration  = reducedMotion ? 1000 : 4000 + Math.random() * 1000;
   const startAngle = currentAngle;
   let   startTime  = null;
 
@@ -155,17 +213,16 @@ function spinWheel() {
     if (!startTime) startTime = ts;
     const t = Math.min((ts - startTime) / duration, 1);
     currentAngle = startAngle + totalDelta * ease(t);
-    drawWheel(currentAngle);
+    drawWheel(currentAngle, false);
     if (t < 1) { requestAnimationFrame(frame); return; }
     currentAngle = startAngle + totalDelta;
-    drawWheel(currentAngle);
-    onSpinEnd(winIdx);
+    drawWheel(currentAngle, false);
+    onSpinEnd(winner);
   }
   requestAnimationFrame(frame);
 }
 
-function onSpinEnd(idx) {
-  const winner = items[idx].text;
+function onSpinEnd(winner) {
   triggerWinEffect();
   // ── Audio: stop spin music, play fanfare ──
   if (audioEnabled) {
@@ -174,22 +231,33 @@ function onSpinEnd(idx) {
   }
   setTimeout(() => {
     document.getElementById('modalNumber').textContent = winner;
-    document.getElementById('modalOverlay').classList.add('show');
+    modalReturnFocus = document.activeElement;
+    const overlay = document.getElementById('modalOverlay');
+    overlay.setAttribute('aria-hidden', 'false');
+    overlay.classList.add('show');
+    document.querySelector('.modal').focus();
     addHistory(winner);
     spinning = false;
     document.getElementById('spinBtn').disabled = false;
+    setEditorLocked(false);
   }, 350);
 }
 
 /* ═══════════════ MODAL ══════════════ */
-function closeModal() { document.getElementById('modalOverlay').classList.remove('show'); }
+function closeModal() {
+  const overlay = document.getElementById('modalOverlay');
+  overlay.classList.remove('show');
+  overlay.setAttribute('aria-hidden', 'true');
+  if (modalReturnFocus?.isConnected) modalReturnFocus.focus();
+}
 
 function removeAndClose() {
   const winner = document.getElementById('modalNumber').textContent;
   const idx = items.findIndex(it => it.text === winner);
   if (idx !== -1) {
+    rememberUndo();
     items.splice(idx, 1);
-    if (items.length === 0) items.push({ text: '' });
+    if (!items.length) items.push({ text: '' });
     renderList();
     drawWheel(currentAngle);
     updateCount();
@@ -198,6 +266,48 @@ function removeAndClose() {
 }
 
 document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target.id === 'modalOverlay') closeModal(); });
+document.addEventListener('keydown', e => {
+  const overlay = document.getElementById('modalOverlay');
+  if (!overlay.classList.contains('show')) return;
+  if (e.key === 'Escape') { e.preventDefault(); closeModal(); return; }
+  if (e.key !== 'Tab') return;
+  const controls = [...overlay.querySelectorAll('button:not(:disabled)')];
+  const first = controls[0];
+  const last = controls[controls.length - 1];
+  const dialog = overlay.querySelector('.modal');
+  if (document.activeElement === dialog) {
+    e.preventDefault();
+    (e.shiftKey ? last : first).focus();
+  } else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+
+function setEditorLocked(locked) {
+  document.querySelectorAll('.editor-col button, .editor-col input').forEach(control => {
+    control.disabled = locked;
+  });
+  if (!locked) updateUndoButton();
+}
+
+function rememberUndo() {
+  undoSnapshot = items.map(item => ({ text: item.text }));
+  updateUndoButton();
+}
+
+function updateUndoButton() {
+  const button = document.getElementById('undoBtn');
+  if (button) button.disabled = !undoSnapshot || spinning;
+}
+
+function undoLastChange() {
+  if (!undoSnapshot || spinning) return;
+  items = undoSnapshot;
+  undoSnapshot = null;
+  renderList();
+  drawWheel(currentAngle);
+  updateCount();
+  updateUndoButton();
+}
 
 /* ═══════════════ ENTRY LIST (wheelofnames style) ══════════════ */
 function renderList() {
@@ -226,8 +336,29 @@ function renderList() {
     inp.value = item.text;
     inp.placeholder = `รายการที่ ${i + 1}`;
     inp.maxLength = 40;
+    let originalText = item.text;
+    let editSnapshotTaken = false;
+    inp.addEventListener('focus', () => { editSnapshotTaken = false; });
     inp.addEventListener('input', () => {
+      if (!editSnapshotTaken) {
+        rememberUndo();
+        editSnapshotTaken = true;
+      }
       items[i].text = inp.value;
+      drawWheel(currentAngle);
+      updateCount();
+    });
+    inp.addEventListener('blur', () => {
+      const value = inp.value.trim();
+      if (value && isDup(value, i)) {
+        items[i].text = originalText;
+        inp.value = originalText;
+        showToast(`"${value}" มีอยู่แล้ว`);
+      } else {
+        items[i].text = value;
+        inp.value = value;
+        originalText = value;
+      }
       drawWheel(currentAngle);
       updateCount();
     });
@@ -235,6 +366,7 @@ function renderList() {
       if (e.key === 'Enter') {
         e.preventDefault();
         /* Insert new row below */
+        rememberUndo();
         items.splice(i + 1, 0, { text: '' });
         renderList();
         drawWheel(currentAngle);
@@ -245,6 +377,7 @@ function renderList() {
       }
       if (e.key === 'Backspace' && inp.value === '' && items.length > 1) {
         e.preventDefault();
+        if (!editSnapshotTaken) rememberUndo();
         items.splice(i, 1);
         renderList();
         drawWheel(currentAngle);
@@ -260,17 +393,25 @@ function renderList() {
       const lines = pasted.split(/\r?\n|\t/).map(s => s.trim()).filter(Boolean);
       if (lines.length <= 1) return; // let normal paste handle single line
       e.preventDefault();
-      // Replace current row with first line, insert rest below
-      items[i].text = lines[0];
-      const newItems = lines.slice(1).map(t => ({ text: t }));
+      rememberUndo();
+      const seen = new Set(items.filter((_, index) => index !== i).map(entry => entry.text.trim().toLocaleLowerCase()).filter(Boolean));
+      const accepted = lines.filter(line => {
+        const key = line.toLocaleLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      if (!accepted.length) { showToast('รายการซ้ำกับข้อมูลที่มีอยู่'); return; }
+      items[i].text = accepted[0];
+      const newItems = accepted.slice(1).map(text => ({ text }));
       items.splice(i + 1, 0, ...newItems);
       renderList();
       drawWheel(currentAngle);
       updateCount();
-      showToast(`วาง ${lines.length} รายการ`);
+      showToast(`วาง ${accepted.length} รายการ${accepted.length < lines.length ? ` (ข้ามรายการซ้ำ ${lines.length - accepted.length})` : ''}`);
       // Focus last inserted row
       const rows = document.querySelectorAll('.entry-input');
-      if (rows[i + lines.length - 1]) rows[i + lines.length - 1].focus();
+      if (rows[i + accepted.length - 1]) rows[i + accepted.length - 1].focus();
     });
 
     /* Delete button */
@@ -279,7 +420,8 @@ function renderList() {
     del.textContent = '×';
     del.title = 'ลบรายการนี้';
     del.onclick = () => {
-      if (items.length <= 1) { items[0].text = ''; renderList(); return; }
+      rememberUndo();
+      if (items.length <= 1) { items[0].text = ''; renderList(); drawWheel(currentAngle); return; }
       items.splice(i, 1);
       renderList();
       drawWheel(currentAngle);
@@ -303,6 +445,7 @@ function renderList() {
   newInp.maxLength = 40;
   newInp.addEventListener('keydown', e => {
     if (e.key === 'Enter' && newInp.value.trim()) {
+      e.preventDefault();
       commitNew(newInp.value.trim());
       newInp.value = '';
     }
@@ -317,10 +460,11 @@ function renderList() {
     // Split by newline (\r\n, \n) or tab — covers Google Sheets single-column copy
     const lines = pasted.split(/\r?\n|\t/).map(s => s.trim()).filter(Boolean);
     if (lines.length > 1) {
+      rememberUndo();
       let added = 0;
       // Remove trailing empty placeholder before inserting
       items = items.filter(it => it.text.trim());
-      lines.forEach(l => { if (!isDup(l)) { items.push({ text: l }); added++; } });
+      lines.forEach(line => { if (!isDup(line)) { items.push({ text: line }); added++; } });
       renderList(); drawWheel(currentAngle); updateCount();
       showToast(`วาง ${added} รายการ${added < lines.length ? ` (ข้าม ${lines.length - added} ซ้ำ)` : ''}`);
     } else {
@@ -335,6 +479,8 @@ function renderList() {
 
 function commitNew(text) {
   if (isDup(text)) { showToast(`"${text}" มีอยู่แล้ว`); return; }
+  rememberUndo();
+  items = items.filter(item => item.text.trim());
   items.push({ text });
   renderList();
   drawWheel(currentAngle);
@@ -344,19 +490,34 @@ function commitNew(text) {
   if (rows[items.length - 1]) rows[items.length - 1].focus();
 }
 
-function isDup(text) { return items.some(i => i.text === text); }
+function isDup(text, exceptIndex = -1) {
+  const key = text.trim().toLocaleLowerCase();
+  return items.some((item, index) => index !== exceptIndex && item.text.trim().toLocaleLowerCase() === key);
+}
 
 function updateCount() {
   const real = items.filter(i => i.text.trim()).length;
   document.getElementById('itemCount').textContent = `${real} รายการ`;
+  persistState();
 }
 
-/* ── Init with one empty row ── */
-items.push({ text: '' });
+function persistState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      items: items.map(item => item.text),
+      history,
+    }));
+  } catch { showToast('บันทึกข้อมูลในเครื่องไม่สำเร็จ'); }
+}
+
+/* ── Init from saved state ── */
 renderList();
+renderHistory();
 
 /* ═══════════════ TOOLBAR ══════════════ */
 function shuffleItems() {
+  rememberUndo();
+  items = getEligibleItems();
   for (let i = items.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [items[i], items[j]] = [items[j], items[i]];
@@ -365,12 +526,14 @@ function shuffleItems() {
 }
 
 function sortItems() {
-  items.sort((a, b) => a.text.localeCompare(b.text, 'th'));
+  rememberUndo();
+  items = getEligibleItems().sort((a, b) => a.text.localeCompare(b.text, 'th'));
   renderList(); drawWheel(currentAngle);
 }
 
 function clearAll() {
   if (!confirm('ล้างรายการทั้งหมด?')) return;
+  rememberUndo();
   items = [{ text: '' }];
   renderList(); drawWheel(currentAngle); updateCount();
 }
@@ -379,12 +542,18 @@ function clearAll() {
 function addPreset(range) {
   const [lo, hi] = range.split('-').map(Number);
   let added = 0;
+  const previousItems = items.map(item => ({ text: item.text }));
   for (let n = lo; n <= hi; n++) {
     const s = String(n).padStart(3, '0');
     if (!isDup(s)) { items.push({ text: s }); added++; }
   }
   /* Remove trailing empty placeholder if real items exist */
-  items = items.filter((it, idx) => it.text.trim() || idx === items.length - 1);
+  items = items.filter(it => it.text.trim());
+  if (!items.length) items.push({ text: '' });
+  if (added) {
+    undoSnapshot = previousItems;
+    updateUndoButton();
+  }
   renderList(); drawWheel(currentAngle); updateCount();
   showToast(`เพิ่ม ${added} รายการ`);
 }
@@ -394,6 +563,7 @@ function addHistory(val) {
   history.unshift(val);
   if (history.length > 40) history.pop();
   renderHistory();
+  persistState();
 }
 function renderHistory() {
   const list = document.getElementById('historyList');
@@ -407,7 +577,44 @@ function renderHistory() {
     list.appendChild(c);
   });
 }
-function clearHistory() { history = []; renderHistory(); }
+function clearHistory() { history = []; renderHistory(); persistState(); }
+
+async function importItems(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  try {
+    const content = await file.text();
+    let values;
+    if (file.name.toLowerCase().endsWith('.json')) {
+      const data = JSON.parse(content);
+      values = Array.isArray(data) ? data : data.items;
+    } else {
+      values = content.split(/\r?\n|\t/);
+    }
+    if (!Array.isArray(values)) throw new Error('Invalid import file');
+    rememberUndo();
+    items = normalizeItems(values);
+    renderList();
+    drawWheel(currentAngle);
+    updateCount();
+    showToast(`นำเข้า ${getEligibleItems().length} รายการ`);
+  } catch {
+    showToast('ไฟล์ไม่ถูกต้อง ใช้ JSON หรือ TXT');
+  } finally {
+    event.target.value = '';
+  }
+}
+
+function exportItems() {
+  const content = JSON.stringify({ items: getEligibleItems().map(item => item.text), history }, null, 2);
+  const file = new Blob([content], { type: 'application/json' });
+  const url = URL.createObjectURL(file);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'lottery-wheel.json';
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 /* ═══════════════ WIN EFFECT ══════════════ */
 function triggerWinEffect() {
@@ -462,42 +669,15 @@ function showToast(msg) {
    AUDIO ENGINE — MP3 File Version
    ═══════════════════════════════════════ */
 
-/* ──────────────────────────────────────────────────────────
-   🎵 เปลี่ยนเพลง: แก้ path ใน 3 บรรทัดนี้
-   วางไฟล์เพลงไว้ใน folder  sounds/  ข้างๆ main.js
-────────────────────────────────────────────────────────── */
-const AUDIO_AMBIENT = new Audio('sounds/ambient.mp3');   // ← เพลงคลอ background
 const AUDIO_SPIN    = new Audio('sounds/spin.mp3');      // ← เพลงตอนหมุน
 const AUDIO_FANFARE = new Audio('sounds/fanfare.mp3');   // ← เสียงตอนได้ผล
 
 /* ── ตั้งค่าเริ่มต้น ── */
-AUDIO_AMBIENT.loop   = true;   // วนซ้ำตลอด
-AUDIO_AMBIENT.volume = 0.4;    // ← ปรับเสียง ambient  (0.0 – 1.0)
 AUDIO_SPIN.volume    = 1.0;    // ← ปรับเสียง spin     (0.0 – 1.0)
 AUDIO_FANFARE.volume = 1.0;    // ← ปรับเสียง fanfare  (0.0 – 1.0)
 
 /* ── ฟังก์ชันควบคุม (ไม่ต้องแก้) ── */
-function startAmbient() {
-  AUDIO_AMBIENT.currentTime = 0;
-  AUDIO_AMBIENT.play().catch(() => {});
-}
-
-function stopAmbient(fadeSecs = 1.0) {
-  // Fade out แทนหยุดทันที
-  const step = AUDIO_AMBIENT.volume / (fadeSecs * 20);
-  const timer = setInterval(() => {
-    if (AUDIO_AMBIENT.volume > step) {
-      AUDIO_AMBIENT.volume -= step;
-    } else {
-      AUDIO_AMBIENT.pause();
-      AUDIO_AMBIENT.volume = 0.4; // reset volume
-      clearInterval(timer);
-    }
-  }, 50);
-}
-
 function startSpinMusic(duration) {
-  stopAmbient(0.3);
   AUDIO_SPIN.currentTime = 0;
   AUDIO_SPIN.play().catch(() => {});
 }
@@ -511,8 +691,6 @@ function playWinFanfare() {
   stopSpinMusic();
   AUDIO_FANFARE.currentTime = 0;
   AUDIO_FANFARE.play().catch(() => {});
-  // กลับมาเล่น ambient หลัง fanfare จบ
-  AUDIO_FANFARE.onended = () => startAmbient();
 }
 
 /* ─────────────────────────────────────
@@ -524,7 +702,9 @@ function initAudioButton() {
   const header = document.querySelector('.app-header');
   const btn = document.createElement('button');
   btn.id = 'audioBtn';
-  btn.innerHTML = '🔇 เปิดเสียง';
+  btn.type = 'button';
+  btn.textContent = '🔇 เปิดเสียงเอฟเฟกต์';
+  btn.setAttribute('aria-pressed', 'false');
   btn.style.cssText = `
     background: var(--accent-l); border: 1px solid var(--rim2);
     color: var(--accent2); font-family:'Kanit',sans-serif;
@@ -540,17 +720,18 @@ function toggleAudio() {
   audioEnabled = !audioEnabled;
   const btn = document.getElementById('audioBtn');
   if (audioEnabled) {
-    btn.innerHTML = '🔊 เสียงเปิด';
+    btn.textContent = '🔊 เอฟเฟกต์เสียงเปิด';
     btn.style.background = 'var(--accent)';
     btn.style.color = '#fff';
     btn.style.borderColor = 'var(--accent)';
-    startAmbient();
   } else {
-    btn.innerHTML = '🔇 เปิดเสียง';
+    btn.textContent = '🔇 เปิดเสียงเอฟเฟกต์';
     btn.style.background = 'var(--accent-l)';
     btn.style.color = 'var(--accent2)';
     btn.style.borderColor = 'var(--rim2)';
-    stopAmbient();
+    stopSpinMusic();
+    AUDIO_FANFARE.pause();
+    AUDIO_FANFARE.currentTime = 0;
   }
 }
 

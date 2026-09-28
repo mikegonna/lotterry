@@ -12,12 +12,12 @@
 <div class="win-flash" id="winFlash"></div>
 
 <!-- Result Modal -->
-<div class="modal-overlay" id="modalOverlay">
-  <div class="modal">
+<div class="modal-overlay" id="modalOverlay" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" tabindex="-1">
     <div class="modal-icon">🎉</div>
     <p class="modal-sub">ผลการจับสลาก</p>
-    <p class="modal-label">ผู้โชคดีคือ</p>
-    <div class="modal-number" id="modalNumber">—</div>
+    <p class="modal-label" id="modalTitle">ผู้โชคดีคือ</p>
+    <div class="modal-number" id="modalNumber" aria-live="assertive">—</div>
     <div class="modal-btn-row">
       <button class="modal-close modal-close--outline" onclick="closeModal()">✓ รับทราบ</button>
       <button class="modal-close" onclick="removeAndClose()">🗑 นำออก</button>
@@ -49,9 +49,9 @@
       <div class="history-box">
         <div class="history-header">
           <span class="history-title">ผลล่าสุด</span>
-          <button class="history-clear" onclick="clearHistory()">ล้าง</button>
+          <button class="history-clear" type="button" onclick="clearHistory()">ล้าง</button>
         </div>
-        <div class="history-list" id="historyList">
+        <div class="history-list" id="historyList" aria-live="polite">
           <span class="empty-text">ยังไม่มีผล</span>
         </div>
       </div>
@@ -60,11 +60,15 @@
     <!-- RIGHT: Editor -->
     <div class="editor-col">
       <div class="editor-toolbar">
-        <button class="tool-btn" onclick="shuffleItems()" title="สุ่มลำดับ">⇄ Shuffle</button>
-        <button class="tool-btn" onclick="sortItems()"    title="เรียงลำดับ">↑↓ Sort</button>
+        <button class="tool-btn" type="button" onclick="shuffleItems()" title="สุ่มลำดับ">⇄ Shuffle</button>
+        <button class="tool-btn" type="button" onclick="sortItems()" title="เรียงลำดับ">↑↓ Sort</button>
+        <button class="tool-btn" id="undoBtn" type="button" onclick="undoLastChange()" disabled>↶ Undo</button>
+        <button class="tool-btn" type="button" onclick="document.getElementById('importFile').click()">นำเข้า</button>
+        <input id="importFile" class="visually-hidden" type="file" accept=".json,.txt,application/json,text/plain" aria-label="เลือกไฟล์ JSON หรือ TXT" onchange="importItems(event)">
+        <button class="tool-btn" type="button" onclick="exportItems()">ส่งออก</button>
         <div class="tool-sep"></div>
-        <button class="tool-btn" onclick="clearAll()"     title="ล้างทั้งหมด">🗑 ล้างทั้งหมด</button>
-        <span class="item-count" id="itemCount">0 รายการ</span>
+        <button class="tool-btn" type="button" onclick="clearAll()" title="ล้างทั้งหมด">🗑 ล้างทั้งหมด</button>
+        <span class="item-count" id="itemCount" aria-live="polite">0 รายการ</span>
       </div>
 
       <!-- The live-edit list -->
@@ -73,9 +77,9 @@
       <!-- Presets -->
       <div class="preset-bar">
         <span class="preset-label">เพิ่มด่วน:</span>
-        <button class="preset-btn" onclick="addPreset('000-099')">000–099</button>
-        <button class="preset-btn" onclick="addPreset('100-199')">100–199</button>
-        <button class="preset-btn" onclick="addPreset('200-299')">200–299</button>
+        <button class="preset-btn" type="button" onclick="addPreset('000-099')">000–099</button>
+        <button class="preset-btn" type="button" onclick="addPreset('100-199')">100–199</button>
+        <button class="preset-btn" type="button" onclick="addPreset('200-299')">200–299</button>
       </div>
     </div>
 
