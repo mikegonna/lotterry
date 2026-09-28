@@ -246,9 +246,10 @@ canvas#wheel {
 .entry-new { display: flex; align-items: center; }
 .entry-new-input {
   flex: 1; background: none; border: none; outline: none;
-  color: var(--muted);
+  color: var(--muted); resize: vertical; min-height: 56px;
   font-family: 'Kanit', sans-serif; font-size: .88rem;
   padding: 10px 10px 10px 46px; cursor: text;
+  line-height: 1.5; border-radius: 10px;
 }
 .entry-new-input:focus { color: var(--text); }
 .entry-new-input::placeholder { color: var(--muted2); }

@@ -438,20 +438,53 @@ function renderList() {
   /* "Add new entry" placeholder at bottom */
   const newRow = document.createElement('div');
   newRow.className = 'entry-row entry-new';
-  const newInp = document.createElement('input');
+  const newInp = document.createElement('textarea');
   newInp.className = 'entry-new-input';
-  newInp.type = 'text';
-  newInp.placeholder = '+ พิมพ์รายการใหม่…';
-  newInp.maxLength = 40;
+  newInp.rows = 2;
+  newInp.placeholder = '+ พิมพ์รายการใหม่ แล้วกด Enter';
+  newInp.maxLength = 120;
   newInp.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && newInp.value.trim()) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      commitNew(newInp.value.trim());
+      const lines = newInp.value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      if (!lines.length) return;
+      if (lines.length === 1) {
+        commitNew(lines[0]);
+      } else {
+        rememberUndo();
+        items = items.filter(item => item.text.trim());
+        let added = 0;
+        lines.forEach(line => {
+          if (!isDup(line)) {
+            items.push({ text: line });
+            added++;
+          }
+        });
+        renderList(); drawWheel(currentAngle); updateCount();
+        showToast(`เพิ่ม ${added} รายการ${added < lines.length ? ` (ข้าม ${lines.length - added} ซ้ำ)` : ''}`);
+      }
       newInp.value = '';
     }
   });
   newInp.addEventListener('blur', () => {
-    if (newInp.value.trim()) { commitNew(newInp.value.trim()); newInp.value = ''; }
+    const lines = newInp.value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    if (!lines.length) return;
+    if (lines.length === 1) {
+      commitNew(lines[0]);
+    } else {
+      rememberUndo();
+      items = items.filter(item => item.text.trim());
+      let added = 0;
+      lines.forEach(line => {
+        if (!isDup(line)) {
+          items.push({ text: line });
+          added++;
+        }
+      });
+      renderList(); drawWheel(currentAngle); updateCount();
+      showToast(`เพิ่ม ${added} รายการ${added < lines.length ? ` (ข้าม ${lines.length - added} ซ้ำ)` : ''}`);
+    }
+    newInp.value = '';
   });
   /* Also handle paste of multi-line text */
   newInp.addEventListener('paste', e => {
