@@ -114,7 +114,7 @@ function renderWheelBase() {
 
     // Font size: เหมาะกับความกว้างช่อง min 11 max 20
     const fs = Math.min(20, Math.max(11, Math.floor(arcW * 0.6)));
-    bctx.font = `900 ${fs}px 'Kanit', sans-serif`;
+    bctx.font = `900 ${fs}px 'IBM Plex Sans Thai', sans-serif`;
     bctx.fillStyle = '#ffffff';
     bctx.textAlign = 'right';
     bctx.textBaseline = 'middle';
@@ -152,7 +152,7 @@ function drawEmpty(target = bctx) {
   target.arc(CX, CY, R, 0, Math.PI * 2);
   target.strokeStyle = 'rgba(255,255,255,.07)';
   target.lineWidth = 2; target.setLineDash([10, 8]); target.stroke(); target.setLineDash([]);
-  target.font = '600 14px Kanit, sans-serif';
+  target.font = '600 14px "IBM Plex Sans Thai", sans-serif';
   target.fillStyle = 'rgba(255,255,255,.2)';
   target.textAlign = 'center'; target.textBaseline = 'middle';
   target.fillText('เพิ่มรายการทางขวามือ', CX, CY);
@@ -729,29 +729,28 @@ function playWinFanfare() {
 /* ─────────────────────────────────────
    AUDIO TOGGLE BUTTON (in header)
 ───────────────────────────────────── */
-let audioEnabled = false;
+let audioEnabled = true;
 
 function initAudioButton() {
   const header = document.querySelector('.app-header');
   const btn = document.createElement('button');
   btn.id = 'audioBtn';
   btn.type = 'button';
-  btn.textContent = '🔇 เปิดเสียงเอฟเฟกต์';
-  btn.setAttribute('aria-pressed', 'false');
   btn.style.cssText = `
     background: var(--accent-l); border: 1px solid var(--rim2);
-    color: var(--accent2); font-family:'Kanit',sans-serif;
+    color: var(--accent2); font-family:'IBM Plex Sans Thai',sans-serif;
     font-size:.78rem; font-weight:600; padding:5px 14px;
     border-radius:20px; cursor:pointer; flex-shrink:0;
     transition: background .15s, border-color .15s;
   `;
   btn.onclick = toggleAudio;
   header.querySelector('h1').after(btn);
+  updateAudioButton();
 }
 
-function toggleAudio() {
-  audioEnabled = !audioEnabled;
+function updateAudioButton() {
   const btn = document.getElementById('audioBtn');
+  btn.setAttribute('aria-pressed', String(audioEnabled));
   if (audioEnabled) {
     btn.textContent = '🔊 เอฟเฟกต์เสียงเปิด';
     btn.style.background = 'var(--accent)';
@@ -762,6 +761,13 @@ function toggleAudio() {
     btn.style.background = 'var(--accent-l)';
     btn.style.color = 'var(--accent2)';
     btn.style.borderColor = 'var(--rim2)';
+  }
+}
+
+function toggleAudio() {
+  audioEnabled = !audioEnabled;
+  updateAudioButton();
+  if (!audioEnabled) {
     stopSpinMusic();
     AUDIO_FANFARE.pause();
     AUDIO_FANFARE.currentTime = 0;
